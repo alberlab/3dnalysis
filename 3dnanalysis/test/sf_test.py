@@ -1,8 +1,6 @@
-# include .. in path
-import sys
-sys.path.append('..')
-from ..structfeat import SfFile
+
 from alabtools.analysis import HssFile
+import analysis3dn 
 
 hss_name = 'igm-model_mcrb_2.5MB.hss'
 
