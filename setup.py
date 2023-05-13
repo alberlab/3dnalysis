@@ -15,13 +15,13 @@ except AttributeError:
     numpy_include = numpy.get_numpy_include()
 
 setup(
-    name='3dnanalysis',
+    name='genome3danalysis',
     version='0.0.0+strucfeat',
     author='Francesco Musella, Ye West',
     author_email='fmusella@g.ucla.edu',
-    url='https://github.com/alberlab/3dnanalysis',
+    url='https://github.com/alberlab/genome3danalysis',
     description='3D Genome Analysis Tools',
-    packages=['3dnanalysis'],
+    packages=['genome3danalysis'],
     # tests_require=tests_require,
     # extras_require=extras_require,
     include_dirs=[numpy_include]+std_include
