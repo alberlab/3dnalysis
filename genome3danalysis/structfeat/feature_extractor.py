@@ -42,6 +42,7 @@ class SfFile(object):
             self.nbead = None
             self.features = None
             self.hss_filename = None
+            self.fitted = False
             self.available_features = AVAILABLE_FEATURES
             self.data = {}
     
@@ -51,9 +52,9 @@ class SfFile(object):
         
         with open(self.filename, 'rb') as f:
             loaded_sf = pickle.load(f)
-        
+                 
         assert hasattr(loaded_sf, 'nstruct'), "Loaded SfFile has no attribute 'nstruct'."
-        assert hasattr(loaded_sf, 'ndomain'), "Loaded SfFile has no attribute 'ndomain'."
+        assert hasattr(loaded_sf, 'nbead'), "Loaded SfFile has no attribute 'nbead'."
         assert hasattr(loaded_sf, 'features'), "Loaded SfFile has no attribute 'features'."
         assert hasattr(loaded_sf, 'hss_filename'), "Loaded SfFile has no attribute 'hss_filename'."
         
@@ -82,18 +83,31 @@ class SfFile(object):
             cfg (dict): Configuration dictionary.
         """
         
+        # Read features
         try:
             features = cfg['features']
         except KeyError:
             raise KeyError("No features found in the config file.")
-        
         assert isinstance(features, dict), "Features must be a dict."
+        self.features = list(features.keys())
+        
+        # Try to get hss_name from cfg
+        try:
+            hss_name = cfg['hss_name']
+        except KeyError:
+            "hss_name not found in cfg."
+        hss = HssFile(hss_name, 'r')
+        self.nstruct = hss.nstruct
+        self.nbead = hss.nbead
+        self.hss_filename = hss_name
         
         for feature in features:
             assert isinstance(feature, str), "Each feature must be a string."
             assert feature in self.available_features, "Feature {} is not available.".format(feature)
 
             self.run_feature(cfg, feature)
+        
+        self.fitted = True
     
     def run_feature(self, cfg, feature):
         """Extract a particular structural feature from an HSS file specified in the config file.
@@ -103,13 +117,8 @@ class SfFile(object):
             feature: Feature name.
         """
 
-        # get hss_name from cfg
-        try:
-            hss_name = cfg['hss_name']
-        except KeyError:
-            "hss_name not found in cfg."
-        
-        # open hss file
+        # open HSS file
+        hss_name = cfg['hss_name']
         hss = HssFile(hss_name, 'r')
         
         # create a temporary directory to store nodes' results
@@ -139,7 +148,8 @@ class SfFile(object):
         
         # update the data of the current object
         self.data[feature] = {'ss_mat': feat_mat,
-                              'bulk_arr': compute_bulk_quantities(feat_mat)}
+                              'bulk_arr': compute_bulk_quantities(feat_mat,
+                                                                  hss.index.copy_index)}
         
         return None
  
@@ -162,7 +172,7 @@ class SfFile(object):
             raise KeyError("No parameters found for feature {}.".format(feature))
 
         # compute the feature array for the current structure
-        feat_arr = structure_computation(feature, struct_id, hss, params)
+        feat_arr = structfeat_computation(feature, struct_id, hss, params)
         
         # save the feature array in the temporary directory
         out_name = os.path.join(temp_dir, feature + '_' + str(struct_id) + '.npy')
@@ -200,17 +210,19 @@ class SfFile(object):
         
         return feat_mat
     
-def compute_bulk_quantities(feat_mat):
+def compute_bulk_quantities(feat_mat, copy_index):
     """Compute the bulk quantities of the structural features.
     """
-    # Create the bulk array (mean and std)
-    feat_mean_arr = np.mean(feat_mat, axis=1)
-    feat_std_arr = np.std(feat_mat, axis=1)
-    feat_delta_arr = feat_std_arr / np.mean(feat_std_arr)
-    return []
+    feat_mean_arr = []
+    feat_std_arr = []
+    for i in copy_index:
+        feat_submat_i = feat_mat[copy_index[i], :]
+        feat_mean_arr.append(np.mean(feat_submat_i))
+        feat_std_arr.append(np.std(feat_submat_i))
+    return feat_mean_arr, feat_std_arr
 
 
-def structure_computation(feature, struct_id, hss, params):
+def structfeat_computation(feature, struct_id, hss, params):
         if feature == 'radial':
             return radial.run(struct_id, hss, params)
     
