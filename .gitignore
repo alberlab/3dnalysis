@@ -174,3 +174,6 @@ cython_debug/
 *script1.sh
 *err_submit
 *out_submit
+
+# VSCode settings
+.vscode/

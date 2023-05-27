@@ -1,5 +1,4 @@
 
-from alabtools.analysis import HssFile
 from genome3danalysis.structfeat import SfFile
 import os
 
@@ -10,13 +9,16 @@ hss_name = 'igm-model_mcrb_2.5MB.hss'
 # append absolute path to hss_name
 hss_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), hss_name)
 
-sf = SfFile('sf_file.sf', 'w')
+sf_name = hss_name.replace('.hss', '.sf')
+sf = SfFile(sf_name, 'w')
 
 config = {'hss_name': hss_name,
+          'gap_name': '',  # ADD GAP FILE!
           'features': {'radial': {'shape': 'ellipsoid',
-                                  'radius': [3050, 2350, 2350]}
+                                  'radius': [3050, 2350, 2350],
+                                  'contact_threshold': 0.5}
                        },
-          'parallel': {'controller': 'ipyparallel'}
+          'parallel': {'controller': 'serial'}
           }
 
 sf.run(config)

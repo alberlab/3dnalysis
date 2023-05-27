@@ -32,5 +32,5 @@ echo $SGE_O_WORKDIR
 export OMP_NUM_THREADS=2
 echo "submitting code in parallel...."
 
-# execute job
-python3 sf_test.py
+# execute job given as argument from the standard input
+python3 $1

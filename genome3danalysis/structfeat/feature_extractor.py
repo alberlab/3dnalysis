@@ -146,12 +146,35 @@ class SfFile(object):
         # delete the temporary directory
         os.system('rm -rf {}'.format(temp_dir))
         
+        # Compute the HAPLOID bulk quantities (mean, std and log normalizations)
+        feat_mean_arr, feat_std_arr = compute_feature_mean_std(feat_mat, hss.index.copy_index)
+        chroms_hap = hss.index.chromstr[hss.index.copy == 0]
+        feat_mean_arr_lnorm_gwide = compute_log_normalization(feat_mean_arr, chroms_hap)
+        feat_mean_arr_lnorm_cwide = compute_log_normalization(feat_mean_arr, chroms_hap,
+                                                              method='chromosome-wide')
+        feat_std_arr_lnorm_gwide = compute_log_normalization(feat_std_arr, chroms_hap)
+        feat_std_arr_lnorm_cwide = compute_log_normalization(feat_std_arr, chroms_hap,
+                                                             method='chromosome-wide')
+        
         # update the data of the current object
         self.data[feature] = {'ss_mat': feat_mat,
-                              'bulk_arr': compute_bulk_quantities(feat_mat,
-                                                                  hss.index.copy_index)}
+                              'mean_arr': feat_mean_arr,
+                              'std_arr': feat_std_arr,
+                              'mean_arr_lnorm_gwide': feat_mean_arr_lnorm_gwide,
+                              'mean_arr_lnorm_cwide': feat_mean_arr_lnorm_cwide,
+                              'std_arr_lnorm_gwide': feat_std_arr_lnorm_gwide,
+                              'std_arr_lnorm_cwide': feat_std_arr_lnorm_cwide}
         
-        return None
+        if 'contact_threshold' not in cfg['features'][feature]:
+            return None
+        
+        # Compute the single-structure contact frequency matrix
+        cnt_thresh = cfg['features'][feature]['contact_threshold']
+        cnt_mat = feat_mat <= cnt_thresh
+        # Compute the HAPLOID average contact frequency array
+        freq_arr, _ = compute_feature_mean_std(cnt_mat, hss.index.copy_index)
+        # Update the data of the current object
+        self.data[feature]['freq_arr'] = freq_arr
  
     @staticmethod
     def parallel_feature(struct_id, feature, cfg, temp_dir):
@@ -210,16 +233,63 @@ class SfFile(object):
         
         return feat_mat
     
-def compute_bulk_quantities(feat_mat, copy_index):
+def compute_feature_mean_std(feat_mat, copy_index):
     """Compute the bulk quantities of the structural features.
     """
     feat_mean_arr = []
     feat_std_arr = []
     for i in copy_index:
+        # copy_index is a Dictionary, where:
+        # - keys are haploid indices (0, 1, 2, ..., nbead_hap - 1)
+        # - values are the multiploid indices for the corresponding haploid index
+        # for examples {0: [0, 1000], 1: [1, 1001], ...}
         feat_submat_i = feat_mat[copy_index[i], :]
         feat_mean_arr.append(np.mean(feat_submat_i))
         feat_std_arr.append(np.std(feat_submat_i))
+    feat_mean_arr = np.array(feat_mean_arr)
+    feat_std_arr = np.array(feat_std_arr)
     return feat_mean_arr, feat_std_arr
+
+def compute_log_normalization(arr, chroms, method='genome-wide'):
+    """Compute the log2 normalization of an array,
+    i.e.  log2(arr / mean(arr)).
+    
+    It can be computed genome-wide (one global mean)
+    or chromosome-wide (one mean per chromosome)
+    
+    ATTENTION: the chroms must be a haploid array, so we can't just
+               use index.chromstr.
+
+    Args:
+        arr (np.array): Array to normalize.
+        chroms (np.array): Chromosome array, matching the array to normalize.
+        method (str, optional): Either 'genome-wide' or 'chromosome-wide'.
+                                Defaults to 'genome-wide'.
+
+    Returns:
+        np.array: Normalized array.
+    """
+    
+    assert len(arr) == len(chroms),\
+        "Array and chromosome array must have the same length."
+    
+    if method == 'genome-wide':
+        return np.log2(arr / np.mean(arr))
+    
+    elif method == 'chromosome-wide':
+        arr_norm = []
+        # Compute the unique chroms preserving the order
+        chroms_unique, chroms_index = np.unique(chroms, return_index=True)
+        chroms_unique = chroms_unique[np.argsort(chroms_index)]
+        # Loop over the unique chromosomes
+        for chrom in chroms_unique:
+            arr_chrom = arr[chroms == chrom]
+            arr_norm.append(np.log2(arr_chrom / np.mean(arr_chrom)))
+        arr_norm = np.concatenate(arr_norm)
+        return arr_norm
+    
+    else:
+        raise ValueError("Method {} not recognized.".format(method))
 
 
 def structfeat_computation(feature, struct_id, hss, params):
