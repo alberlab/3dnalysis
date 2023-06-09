@@ -8,6 +8,8 @@ import os
 import sys
 from functools import partial
 from alabtools.parallel import Controller
+from alabtools.utils import Genome, Index
+import pandas as pd
 from . import radial
 
 # Available features that can be extracted
@@ -44,6 +46,8 @@ class SfFile(object):
             self.hss_filename = None
             self.fitted = False
             self.available_features = AVAILABLE_FEATURES
+            self.genome = None
+            self.index = None
             self.data = {}
     
     def load(self):
@@ -100,6 +104,8 @@ class SfFile(object):
         self.nstruct = hss.nstruct
         self.nbead = hss.nbead
         self.hss_filename = hss_name
+        self.genome = hss.genome
+        self.index = hss.index
         
         for feature in features:
             assert isinstance(feature, str), "Each feature must be a string."
@@ -139,22 +145,40 @@ class SfFile(object):
                               feature=feature)
 
         # run the parallel and reduce tasks
+        # feat_mat is a matrix of shape (nbead_multiploid, nstruct)
         feat_mat = controller.map_reduce(parallel_task,
                                          reduce_task,
                                          args=np.arange(hss.nstruct))
+        
+        # Mask the gaps (or "non-domain regions") with NaNs
+        try:
+            # Try to read the gap BED file from the config file
+            # It must be a 4-column BED file, where the 4th column is a boolean,
+            # and with no header
+            # (True if the region is a gap, False otherwise)
+            gap_file = cfg['gap_file']
+            gap_hap = pd.read_csv(gap_file, sep='\t', header=None)[3].values.astype(bool)
+        except KeyError:
+            # If the gap file is not specified, we assume that there are no gaps
+            gap_hap = np.zeros(len(self.index.copy_index), dtype=bool)
+        # Convert gap to multiploid version
+        gap_mtp = np.zeros(len(self.index), dtype=bool)
+        for i in self.index.copy_index:
+            gap_mtp[self.index.copy_index[i]] = gap_hap[i]
+        # Mask the gaps
+        feat_mat[gap_mtp, :] = np.nan
 
         # delete the temporary directory
         os.system('rm -rf {}'.format(temp_dir))
         
         # Compute the HAPLOID bulk quantities (mean, std and log normalizations)
-        feat_mean_arr, feat_std_arr = compute_feature_mean_std(feat_mat, hss.index.copy_index)
-        chroms_hap = hss.index.chromstr[hss.index.copy == 0]
-        feat_mean_arr_lnorm_gwide = compute_log_normalization(feat_mean_arr, chroms_hap)
-        feat_mean_arr_lnorm_cwide = compute_log_normalization(feat_mean_arr, chroms_hap,
-                                                              method='chromosome-wide')
-        feat_std_arr_lnorm_gwide = compute_log_normalization(feat_std_arr, chroms_hap)
-        feat_std_arr_lnorm_cwide = compute_log_normalization(feat_std_arr, chroms_hap,
-                                                             method='chromosome-wide')
+        feat_mean_arr, feat_std_arr = self.compute_feature_mean_std(feat_mat)
+        feat_mean_arr_lnorm_gwide = self.compute_log_normalization(feat_mean_arr)
+        feat_mean_arr_lnorm_cwide = self.compute_log_normalization(feat_mean_arr,
+                                                                   method='chromosome-wide')
+        feat_std_arr_lnorm_gwide = self.compute_log_normalization(feat_std_arr)
+        feat_std_arr_lnorm_cwide = self.compute_log_normalization(feat_std_arr,
+                                                                  method='chromosome-wide')
         
         # update the data of the current object
         self.data[feature] = {'ss_mat': feat_mat,
@@ -172,7 +196,7 @@ class SfFile(object):
         cnt_thresh = cfg['features'][feature]['contact_threshold']
         cnt_mat = feat_mat <= cnt_thresh
         # Compute the HAPLOID average contact frequency array
-        freq_arr, _ = compute_feature_mean_std(cnt_mat, hss.index.copy_index)
+        freq_arr, _ = self.compute_feature_mean_std(cnt_mat)
         # Update the data of the current object
         self.data[feature]['freq_arr'] = freq_arr
  
@@ -233,63 +257,72 @@ class SfFile(object):
         
         return feat_mat
     
-def compute_feature_mean_std(feat_mat, copy_index):
-    """Compute the bulk quantities of the structural features.
-    """
-    feat_mean_arr = []
-    feat_std_arr = []
-    for i in copy_index:
-        # copy_index is a Dictionary, where:
-        # - keys are haploid indices (0, 1, 2, ..., nbead_hap - 1)
-        # - values are the multiploid indices for the corresponding haploid index
-        # for examples {0: [0, 1000], 1: [1, 1001], ...}
-        feat_submat_i = feat_mat[copy_index[i], :]
-        feat_mean_arr.append(np.mean(feat_submat_i))
-        feat_std_arr.append(np.std(feat_submat_i))
-    feat_mean_arr = np.array(feat_mean_arr)
-    feat_std_arr = np.array(feat_std_arr)
-    return feat_mean_arr, feat_std_arr
+    def compute_feature_mean_std(self, feat_mat):
+        """Compute the bulk quantities of the structural features.
+        """
+        
+        # Initialize the arrays
+        feat_mean_arr = []
+        feat_std_arr = []
+        
+        # Loop over the haploid indices
+        for i in self.index.copy_index:
+            # copy_index is a Dictionary, where:
+            # - keys are haploid indices (0, 1, 2, ..., nbead_hap - 1)
+            # - values are the multiploid indices for the corresponding haploid index
+            # for examples {0: [0, 1000], 1: [1, 1001], ...}
+            feat_submat_i = feat_mat[self.index.copy_index[i], :]
+            feat_mean_arr.append(np.nanmean(feat_submat_i))
+            feat_std_arr.append(np.nanstd(feat_submat_i))
+        
+        # Cast to arrays
+        feat_mean_arr = np.array(feat_mean_arr)
+        feat_std_arr = np.array(feat_std_arr)
+        
+        return feat_mean_arr, feat_std_arr
 
-def compute_log_normalization(arr, chroms, method='genome-wide'):
-    """Compute the log2 normalization of an array,
-    i.e.  log2(arr / mean(arr)).
-    
-    It can be computed genome-wide (one global mean)
-    or chromosome-wide (one mean per chromosome)
-    
-    ATTENTION: the chroms must be a haploid array, so we can't just
-               use index.chromstr.
+    def compute_log_normalization(self, arr, method='genome-wide'):
+        """Compute the log2 normalization of an array,
+        i.e.  log2(arr / mean(arr)).
+        
+        It can be computed genome-wide (one global mean)
+        or chromosome-wide (one mean per chromosome)
 
-    Args:
-        arr (np.array): Array to normalize.
-        chroms (np.array): Chromosome array, matching the array to normalize.
-        method (str, optional): Either 'genome-wide' or 'chromosome-wide'.
-                                Defaults to 'genome-wide'.
+        Args:
+            arr (np.array): Array to normalize.
+            method (str, optional): Either 'genome-wide' or 'chromosome-wide'.
+                                    Defaults to 'genome-wide'.
 
-    Returns:
-        np.array: Normalized array.
-    """
-    
-    assert len(arr) == len(chroms),\
-        "Array and chromosome array must have the same length."
-    
-    if method == 'genome-wide':
-        return np.log2(arr / np.mean(arr))
-    
-    elif method == 'chromosome-wide':
-        arr_norm = []
-        # Compute the unique chroms preserving the order
-        chroms_unique, chroms_index = np.unique(chroms, return_index=True)
-        chroms_unique = chroms_unique[np.argsort(chroms_index)]
-        # Loop over the unique chromosomes
-        for chrom in chroms_unique:
-            arr_chrom = arr[chroms == chrom]
-            arr_norm.append(np.log2(arr_chrom / np.mean(arr_chrom)))
-        arr_norm = np.concatenate(arr_norm)
-        return arr_norm
-    
-    else:
-        raise ValueError("Method {} not recognized.".format(method))
+        Returns:
+            np.array: Normalized array.
+        """
+        
+        # Get the haploid chromstr array
+        chromstr_hap = self.index.chromstr[self.index.copy == 0]
+        
+        # Check that the array and the chromstr_hap array have the same length
+        assert len(arr) == len(chromstr_hap),\
+            "Array and chromstr_hap array must have the same length."
+        
+        # Compute the log2 normalization genome-wide
+        if method == 'genome-wide':
+            return np.log2(arr / np.nanmean(arr))
+        
+        # Compute the log2 normalization chromosome-wide
+        elif method == 'chromosome-wide':
+            arr_norm = []
+            # Compute the unique chroms preserving the order
+            chroms_unique, chroms_index = np.unique(chromstr_hap, return_index=True)
+            chroms_unique = chroms_unique[np.argsort(chroms_index)]
+            # Loop over the unique chromosomes
+            for chrom in chroms_unique:
+                arr_chrom = arr[chromstr_hap == chrom]
+                arr_norm.append(np.log2(arr_chrom / np.nanmean(arr_chrom)))
+            arr_norm = np.concatenate(arr_norm)
+            return arr_norm
+        
+        else:
+            raise ValueError("Method {} not recognized.".format(method))
 
 
 def structfeat_computation(feature, struct_id, hss, params):
