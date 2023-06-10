@@ -11,9 +11,10 @@ from alabtools.parallel import Controller
 from alabtools.utils import Genome, Index
 import pandas as pd
 from . import radial
+from . import lamina
 
 # Available features that can be extracted
-AVAILABLE_FEATURES = ['radial']
+AVAILABLE_FEATURES = ['radial', 'lamina']
 
 class SfFile(object):
     """Generic class for extracting and storing Structural Features from HSS file.
@@ -328,4 +329,6 @@ class SfFile(object):
 def structfeat_computation(feature, struct_id, hss, params):
         if feature == 'radial':
             return radial.run(struct_id, hss, params)
+        if feature == 'lamina':
+            return lamina.run(struct_id, hss, params)
     
