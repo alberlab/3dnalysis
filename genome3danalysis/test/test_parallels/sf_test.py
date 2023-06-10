@@ -16,7 +16,10 @@ config = {'hss_name': hss_name,
           'gap_name': '',  # ADD GAP FILE!
           'features': {'radial': {'shape': 'ellipsoid',
                                   'radius': [3050, 2350, 2350],
-                                  'contact_threshold': 0.5}
+                                  'contact_threshold': 0.5},
+                       'lamina': {'shape': 'ellipsoid',
+                                  'radius': [3050, 2350, 2350],
+                                  'contact_threshold': 770}
                        },
           'parallel': {'controller': 'serial'}
           }
