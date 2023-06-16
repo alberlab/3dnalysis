@@ -164,6 +164,7 @@ cython_debug/
 *.bed*
 *.sf
 *.npy
+*.pkl
 
 # ipyparallel submission files
 *err_controller
