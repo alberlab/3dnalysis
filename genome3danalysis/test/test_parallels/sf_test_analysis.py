@@ -18,6 +18,9 @@ print(np.max(sf.data['radial']['freq_arr']))
 print(type(sf.data['lamina']['mean_arr']))
 print(np.min(sf.data['lamina']['mean_arr']))
 print(np.max(sf.data['lamina']['mean_arr']))
+print(type(sf.data['lamina_tsa']['mean_arr_lnorm_gwide']))
+print(np.min(sf.data['lamina_tsa']['mean_arr_lnorm_gwide']))
+print(np.max(sf.data['lamina_tsa']['mean_arr_lnorm_gwide']))
 
 # Save radial data as bedgraph
 genome = Genome('mm10', usechr=('#', 'X', 'Y'))

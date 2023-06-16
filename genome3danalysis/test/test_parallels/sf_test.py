@@ -19,7 +19,11 @@ config = {'hss_name': hss_name,
                                   'contact_threshold': 0.5},
                        'lamina': {'shape': 'ellipsoid',
                                   'radius': [3050, 2350, 2350],
-                                  'contact_threshold': 770}
+                                  'contact_threshold': 770},
+                       'lamina_tsa': {'shape': 'ellipsoid',
+                                      'radius': [3050, 2350, 2350],
+                                      'exterior_threshold': 0.8,
+                                      'tsa_exponent': 0.007}
                        },
           'parallel': {'controller': 'serial'}
           }
