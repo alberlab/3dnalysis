@@ -13,14 +13,21 @@ sf = SfFile('igm-model_mcrb_2.5MB.sf', 'r')
 # Print data keys and types
 print(sf.data.keys())
 print(sf.data['radial'].keys())
+
 print(type(sf.data['radial']['mean_arr']))
 print(np.max(sf.data['radial']['freq_arr']))
+
 print(type(sf.data['lamina']['mean_arr']))
 print(np.min(sf.data['lamina']['mean_arr']))
 print(np.max(sf.data['lamina']['mean_arr']))
+
 print(type(sf.data['lamina_tsa']['mean_arr_lnorm_gwide']))
 print(np.min(sf.data['lamina_tsa']['mean_arr_lnorm_gwide']))
 print(np.max(sf.data['lamina_tsa']['mean_arr_lnorm_gwide']))
+
+print(type(sf.data['speckle']['mean_arr']))
+print(np.min(sf.data['speckle']['mean_arr']))
+print(np.max(sf.data['speckle']['mean_arr']))
 
 # Save radial data as bedgraph
 genome = Genome('mm10', usechr=('#', 'X', 'Y'))

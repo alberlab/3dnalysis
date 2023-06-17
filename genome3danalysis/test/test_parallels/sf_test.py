@@ -23,7 +23,8 @@ config = {'hss_name': hss_name,
                        'lamina_tsa': {'shape': 'ellipsoid',
                                       'radius': [3050, 2350, 2350],
                                       'exterior_threshold': 0.8,
-                                      'tsa_exponent': 0.007}
+                                      'tsa_exponent': 0.007},
+                       'speckle': {'filename': '/u/home/f/fmusella/genome3danalysis/genome3danalysis/test/test_parallels/bodies.pkl'}
                        },
           'parallel': {'controller': 'serial'}
           }

@@ -16,7 +16,7 @@ from . import lamina_tsa
 from . import body
 
 # Available features that can be extracted
-AVAILABLE_FEATURES = ['radial', 'lamina', 'lamina_tsa', 'body']
+AVAILABLE_FEATURES = ['radial', 'lamina', 'lamina_tsa', 'speckle', 'nucleoli']
 
 class SfFile(object):
     """Generic class for extracting and storing Structural Features from HSS file.
@@ -335,6 +335,8 @@ def structfeat_computation(feature, struct_id, hss, params):
             return lamina.run(struct_id, hss, params)
         if feature == 'lamina_tsa':
             return lamina_tsa.run(struct_id, hss, params)
-        if feature == 'body':
+        if feature == 'speckle':
+            return body.run(struct_id, hss, params)
+        if feature == 'nucleoli':
             return body.run(struct_id, hss, params)
     
