@@ -2,7 +2,7 @@ import numpy as np
 from scipy.spatial.distance import cdist
 import pickle
     
-def run(struct_id, hss, params):
+def run(struct_id, hss, params, what_to_measure):
     
     # Read file name
     try:
@@ -24,18 +24,23 @@ def run(struct_id, hss, params):
     assert bodies.ndim == 2, 'Bodies must be a 2D array'
     assert bodies.shape[1] == 3, 'Bodies second dimension must be 3 (x,y,z)'
     
-    # get coordinates of struct_id
-    coord = hss.coordinates[:, struct_id, :]
-    
     # If there are no bodies, return an array of NaNs
     if bodies.shape[0] == 0:
         return np.full(coord.shape[0], np.nan)
     
-    # Compute the distance between each coordinate and each body
-    dist_bodies = cdist(coord, bodies)
+    # get coordinates of struct_id
+    coord = hss.coordinates[:, struct_id, :]
     
-    # Return the minimum distance for each coordinate
-    dist_closest_body = np.min(dist_bodies, axis=1)
+    # Compute the distance between each bead and each body
+    dist_bodies = cdist(coord, bodies)  # shape: (n_beads, n_bodies)
     
-    return dist_closest_body
+    # Return the minimum distance for each bead
+    if what_to_measure == 'dist':
+        return np.min(dist_bodies, axis=1)
+    elif what_to_measure == 'tsa':
+        try:
+            tsa_alpha = params['tsa_exponent']
+        except KeyError:
+            tsa_alpha = 0.004  # CHECK TSA-SEQ PAPER FOR THIS VALUE!
+        return np.sum(np.exp(- tsa_alpha * dist_bodies), axis=1)
     

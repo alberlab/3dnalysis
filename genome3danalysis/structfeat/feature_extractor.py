@@ -336,7 +336,11 @@ def structfeat_computation(feature, struct_id, hss, params):
         if feature == 'lamina_tsa':
             return lamina_tsa.run(struct_id, hss, params)
         if feature == 'speckle':
-            return body.run(struct_id, hss, params)
+            return body.run(struct_id, hss, params, what_to_measure='dist')
+        if feature == 'speckle_tsa':
+            return body.run(struct_id, hss, params, what_to_measure='tsa')
         if feature == 'nucleoli':
-            return body.run(struct_id, hss, params)
+            return body.run(struct_id, hss, params, what_to_measure='dist')
+        if feature == 'nucleoli_tsa':
+            return body.run(struct_id, hss, params, what_to_measure='tsa')
     
