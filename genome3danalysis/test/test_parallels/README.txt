@@ -34,3 +34,15 @@ Then we can finish the code by adding the TransAB, ICP and RG.
 
 NOTE: I think that, to make the folder more clean, we can rename the codes with a _ at the beginning
 (since they are hidden to the user). For example, lamina.py -> _lamina.py.
+
+
+July 5
+
+We added the TSA computation for the Nuclear Body.
+The code has been incorporated in body.py, although it is used not efficiently in the main code
+(we run it two times, could be done once instead).
+
+We also added the TransAB computation. We tested that it works and produces a reasonable average track,
+but we don't know if it agrees with Asli's previous code.
+
+Next time we can just finish with ICP and RG.
