@@ -24,7 +24,9 @@ config = {'hss_name': hss_name,
                                       'radius': [3050, 2350, 2350],
                                       'exterior_threshold': 0.8,
                                       'tsa_exponent': 0.007},
-                       'speckle': {'filename': '/u/home/f/fmusella/genome3danalysis/genome3danalysis/test/test_parallels/bodies.pkl'}
+                       'speckle': {'filename': '/u/home/f/fmusella/genome3danalysis/genome3danalysis/test/test_parallels/bodies.pkl'},
+                       'transAB': {'filename': '/u/home/f/fmusella/genome3danalysis/genome3danalysis/test/test_parallels/mcrb_yamada_AB_2.5Mb.bed',
+                                   'dist_cutoff': 200},
                        },
           'parallel': {'controller': 'serial'}
           }

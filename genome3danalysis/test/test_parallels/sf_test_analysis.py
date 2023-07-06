@@ -14,20 +14,34 @@ sf = SfFile('igm-model_mcrb_2.5MB.sf', 'r')
 print(sf.data.keys())
 print(sf.data['radial'].keys())
 
+print('radial')
 print(type(sf.data['radial']['mean_arr']))
 print(np.max(sf.data['radial']['freq_arr']))
+print('\n')
 
+print('lamina')
 print(type(sf.data['lamina']['mean_arr']))
 print(np.min(sf.data['lamina']['mean_arr']))
 print(np.max(sf.data['lamina']['mean_arr']))
+print('\n')
 
+print('lamina_tsa')
 print(type(sf.data['lamina_tsa']['mean_arr_lnorm_gwide']))
 print(np.min(sf.data['lamina_tsa']['mean_arr_lnorm_gwide']))
 print(np.max(sf.data['lamina_tsa']['mean_arr_lnorm_gwide']))
+print('\n')
 
+print('speckle')
 print(type(sf.data['speckle']['mean_arr']))
 print(np.min(sf.data['speckle']['mean_arr']))
 print(np.max(sf.data['speckle']['mean_arr']))
+print('\n')
+
+print('transAB')
+print(type(sf.data['transAB']['mean_arr']))
+print(np.min(sf.data['transAB']['mean_arr']))
+print(np.max(sf.data['transAB']['mean_arr']))
+print('\n')
 
 # Save radial data as bedgraph
 genome = Genome('mm10', usechr=('#', 'X', 'Y'))
@@ -70,3 +84,8 @@ rad, std = compute_radial_profile(hss, (3050, 2350, 2350))
 # Check that the radial avg and std are close
 np.testing.assert_allclose(sf.data['radial']['mean_arr'], rad, rtol=1e-5)
 np.testing.assert_allclose(sf.data['radial']['std_arr'], std, rtol=1e-5)
+
+# Save transAB data as bedgraph
+idx2 = sf.index.get_haploid()
+idx2.add_custom_track('transAB_mean', sf.data['transAB']['mean_arr'])
+idx2.dump_bed(file='transAB_mean.bedgraph', header=False, include=['transAB_mean'])
