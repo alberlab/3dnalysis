@@ -34,6 +34,8 @@ def run(struct_id, hss, params):
         raise KeyError('AB-compartment file not found')
     # Assert that AB track is correct
     assert isinstance(ab, np.ndarray), 'AB-compartment track must be a numpy array'
+    assert len(ab) == np.sum(hss.index.copy == 0),\
+        'AB-compartment track must have the same length as the number of haploid beads in the structure'
     assert len(np.unique(ab)) == 2 or len(np.unique(ab)) == 3,\
         'AB-compartment track must contain only A and B and optionally NA (unspecified format)'
     assert 'A' in np.unique(ab) and 'B' in np.unique(ab), 'AB-compartment track must contain A and B'
