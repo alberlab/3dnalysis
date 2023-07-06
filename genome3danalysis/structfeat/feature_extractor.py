@@ -8,11 +8,11 @@ import sys
 from functools import partial
 from alabtools.parallel import Controller
 import pandas as pd
-from . import radial
-from . import lamina
-from . import lamina_tsa
-from . import body
-from . import transAB
+from . import _radial
+from . import _lamina
+from . import _lamina_tsa
+from . import _body
+from . import _transAB
 
 # Available features that can be extracted
 AVAILABLE_FEATURES = ['radial', 'lamina', 'lamina_tsa',
@@ -335,19 +335,19 @@ class SfFile(object):
 
 def structfeat_computation(feature, struct_id, hss, params):
         if feature == 'radial':
-            return radial.run(struct_id, hss, params)
+            return _radial.run(struct_id, hss, params)
         if feature == 'lamina':
-            return lamina.run(struct_id, hss, params)
+            return _lamina.run(struct_id, hss, params)
         if feature == 'lamina_tsa':
-            return lamina_tsa.run(struct_id, hss, params)
+            return _lamina_tsa.run(struct_id, hss, params)
         if feature == 'speckle':
-            return body.run(struct_id, hss, params, what_to_measure='dist')
+            return _body.run(struct_id, hss, params, what_to_measure='dist')
         if feature == 'speckle_tsa':
-            return body.run(struct_id, hss, params, what_to_measure='tsa')
+            return _body.run(struct_id, hss, params, what_to_measure='tsa')
         if feature == 'nucleoli':
-            return body.run(struct_id, hss, params, what_to_measure='dist')
+            return _body.run(struct_id, hss, params, what_to_measure='dist')
         if feature == 'nucleoli_tsa':
-            return body.run(struct_id, hss, params, what_to_measure='tsa')
+            return _body.run(struct_id, hss, params, what_to_measure='tsa')
         if feature == 'transAB':
-            return transAB.run(struct_id, hss, params)
+            return _transAB.run(struct_id, hss, params)
     
