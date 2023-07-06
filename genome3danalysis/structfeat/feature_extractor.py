@@ -8,15 +8,17 @@ import os
 import sys
 from functools import partial
 from alabtools.parallel import Controller
-from alabtools.utils import Genome, Index
 import pandas as pd
 from . import radial
 from . import lamina
 from . import lamina_tsa
 from . import body
+from . import transAB
 
 # Available features that can be extracted
-AVAILABLE_FEATURES = ['radial', 'lamina', 'lamina_tsa', 'speckle', 'nucleoli']
+AVAILABLE_FEATURES = ['radial', 'lamina', 'lamina_tsa',
+                      'speckle', 'nucleoli', 'speckle_tsa', 'nucleoli_tsa', 
+                      'transAB']
 
 class SfFile(object):
     """Generic class for extracting and storing Structural Features from HSS file.
@@ -343,4 +345,6 @@ def structfeat_computation(feature, struct_id, hss, params):
             return body.run(struct_id, hss, params, what_to_measure='dist')
         if feature == 'nucleoli_tsa':
             return body.run(struct_id, hss, params, what_to_measure='tsa')
+        if feature == 'transAB':
+            return transAB.run(struct_id, hss, params)
     
