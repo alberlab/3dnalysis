@@ -2,7 +2,6 @@ import numpy as np
 import pickle
 from alabtools.analysis import HssFile
 import warnings
-import h5py
 import tempfile
 import os
 import sys
@@ -54,6 +53,7 @@ class SfFile(object):
             self.genome = None
             self.index = None
             self.data = {}
+            self.config = {}
     
     def load(self):
         """Loads a SfFile from a pickle file.
@@ -91,6 +91,9 @@ class SfFile(object):
         Args:
             cfg (dict): Configuration dictionary.
         """
+        
+        # Save the config file in the current object
+        self.config = cfg
         
         # Read features
         try:
