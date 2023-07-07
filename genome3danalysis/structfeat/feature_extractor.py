@@ -13,11 +13,12 @@ from . import _lamina
 from . import _lamina_tsa
 from . import _body
 from . import _transAB
+from . import _icp
 
 # Available features that can be extracted
 AVAILABLE_FEATURES = ['radial', 'lamina', 'lamina_tsa',
                       'speckle', 'nucleoli', 'speckle_tsa', 'nucleoli_tsa', 
-                      'transAB']
+                      'transAB', 'ICP']
 
 class SfFile(object):
     """Generic class for extracting and storing Structural Features from HSS file.
@@ -350,4 +351,6 @@ def structfeat_computation(feature, struct_id, hss, params):
             return _body.run(struct_id, hss, params, what_to_measure='tsa')
         if feature == 'transAB':
             return _transAB.run(struct_id, hss, params)
+        if feature == 'ICP':
+            return _icp.run(struct_id, hss, params)
     
