@@ -46,7 +46,7 @@ def run(struct_id, hss, params):
     # Find the inter-chromosomal matrix (inter_ij = True if i and j are on different chromosomal alleles)
     inter_chrom = hss.index.chrom[:, None] != hss.index.chrom[None, :]
     inter_copy = hss.index.copy[:, None] != hss.index.copy[None, :]
-    inter = np.logical_and(inter_chrom, inter_copy)
+    inter = np.logical_or(inter_chrom, inter_copy)
     
     # Find the proximity matrix (prox_ij = True if i and j are within a certain distance)
     try:  # get surface-to-surface distance threshold
