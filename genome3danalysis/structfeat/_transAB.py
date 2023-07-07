@@ -3,7 +3,7 @@ import pandas as pd
 from scipy.spatial.distance import cdist
 
 def adapt_to_index(hap_track, index):
-    """Given a haplotype track, adapt it to the multi-ploid index.
+    """Given a haploid track, adapts it to the multi-ploid index.
 
     Args:
         hap_track (np.ndarray(nbead_hap)): haplotype track
