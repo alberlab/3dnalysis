@@ -46,3 +46,19 @@ We also added the TransAB computation. We tested that it works and produces a re
 but we don't know if it agrees with Asli's previous code.
 
 Next time we can just finish with ICP and RG.
+
+
+July 7
+
+We added the ICP and the RG computation. We haven't tested them, not even if they work, because Hoffman
+was down (we worked on the local machine).
+
+We should:
+    1) Check that the code for ICP and RG works;
+    2) Check that all the structural features we computed match with the previous code;
+    3) Include the possibility of multiple RG computations;
+    4) Include the chromosome surface localization feature;
+    5) Merge the codes that are similar (radial, lamin and lamin_tsa, icp and transAB);
+    6) Add a main file, like igm-run to run the whole pipeline;
+
+Then (or before) we have to work on the Markov Clustering algorithm.
