@@ -27,6 +27,8 @@ config = {'hss_name': hss_name,
                        'speckle': {'filename': '/u/home/f/fmusella/genome3danalysis/genome3danalysis/test/test_parallels/bodies.pkl'},
                        'transAB': {'filename': '/u/home/f/fmusella/genome3danalysis/genome3danalysis/test/test_parallels/mcrb_yamada_AB_2.5Mb.bed',
                                    'dist_cutoff': 200},
+                       'icp': {'dist_cutoff': 200},
+                       'rg': {'window': 7}
                        },
           'parallel': {'controller': 'serial'}
           }
