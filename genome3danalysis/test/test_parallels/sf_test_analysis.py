@@ -43,6 +43,18 @@ print(np.min(sf.data['transAB']['mean_arr']))
 print(np.max(sf.data['transAB']['mean_arr']))
 print('\n')
 
+print('icp')
+print(type(sf.data['icp']['mean_arr']))
+print(np.min(sf.data['icp']['mean_arr']))
+print(np.max(sf.data['icp']['mean_arr']))
+print('\n')
+
+print('rg')
+print(type(sf.data['rg']['mean_arr']))
+print(np.nanmin(sf.data['rg']['mean_arr']))
+print(np.nanmax(sf.data['rg']['mean_arr']))
+print('\n')
+
 # Save radial data as bedgraph
 genome = Genome('mm10', usechr=('#', 'X', 'Y'))
 index = genome.bininfo(2500000).get_haploid()
