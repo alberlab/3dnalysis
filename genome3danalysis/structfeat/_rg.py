@@ -12,6 +12,8 @@ def run(struct_id, hss, params):
     # If the window is not an odd number, add 1 to it
     if window % 2 == 0:
         window += 1
+    assert window >= 3, 'Window size should be at least 3'
+    assert isinstance(window, int), 'Window size should be an integer'
     
     # get coordinates of struct_id
     coord = hss.coordinates[:, struct_id, :]
@@ -25,7 +27,7 @@ def run(struct_id, hss, params):
         s = i - int((window - 1) / 2)
         e = i + int((window - 1) / 2)
         # check if the window is out of the structure
-        if s < 0 or e > hss.nbead:
+        if s < 0 or e > hss.nbead - 1:
             gyr.append(np.nan)
             continue
         # check if the window is out of the chromosome
