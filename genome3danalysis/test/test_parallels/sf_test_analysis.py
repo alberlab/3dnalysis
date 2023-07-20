@@ -37,6 +37,12 @@ print(np.min(sf.data['speckle']['mean_arr']))
 print(np.max(sf.data['speckle']['mean_arr']))
 print('\n')
 
+print('speckle_tsa')
+print(type(sf.data['speckle_tsa']['mean_arr']))
+print(np.min(sf.data['speckle_tsa']['mean_arr']))
+print(np.max(sf.data['speckle_tsa']['mean_arr']))
+print('\n')
+
 print('transAB')
 print(type(sf.data['transAB']['mean_arr']))
 print(np.min(sf.data['transAB']['mean_arr']))
