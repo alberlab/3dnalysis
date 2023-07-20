@@ -62,3 +62,11 @@ We should:
     6) Add a main file, like igm-run to run the whole pipeline;
 
 Then (or before) we have to work on the Markov Clustering algorithm.
+
+
+July 19
+
+We checked that the ICP and RG codes work, at least computationally (there was a little bug in RG).
+
+Now we're applying the pipeline to the H1 dataset (HDS). We are in the process of processing
+the Markov clustering into our new pickle format. We will also need the GAP BedFile and the AB BedFile.
