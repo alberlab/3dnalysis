@@ -17,6 +17,7 @@ cluster_minsize = 3
 
 # Load pickle file
 filename_in = sys.argv[1]
+tag = sys.argv[2]
 with open(filename_in, 'rb') as f:
     clusters = pickle.load(f)
 
@@ -25,7 +26,7 @@ with open(filename_in, 'rb') as f:
 bodies = []
 for s in tqdm(range(hss.nstruct)):
     bodies_s = []
-    for cluster in clusters['IN'][s]:  # cluster is a list of indices (int)
+    for cluster in clusters[tag][s]:  # cluster is a list of indices (int)
         if len(cluster) <= cluster_minsize:
             continue
         xyz = hss.coordinates[np.array(cluster), s, :]
