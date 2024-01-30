@@ -167,7 +167,7 @@ class SfFile(object):
             # and with no header
             # (True if the region is a gap, False otherwise)
             gap_file = cfg['gap_file']
-            gap_hap = pd.read_csv(gap_file, sep='\t', header=None)[3].values.astype(bool)
+            gap_hap = pd.read_csv(gap_file, sep='\s+', header=None)[3].values.astype(bool)
         except KeyError:
             # If the gap file is not specified, we assume that there are no gaps
             gap_hap = np.zeros(len(self.index.copy_index), dtype=bool)

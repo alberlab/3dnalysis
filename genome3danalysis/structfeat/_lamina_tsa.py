@@ -26,7 +26,7 @@ def run(struct_id, hss, params):
         except KeyError:
             raise KeyError('Radius must be specified')
         if shape == 'sphere':
-            assert len(radius) == 1, 'Radius must be a scalar since shape is a sphere'
+            assert isinstance(radius, float), 'Radius must be a float since shape is a sphere'
         elif shape == 'ellipsoid':
             assert len(radius) == 3, 'Radius must be a 3D vector since shape is an ellipsoid'
     

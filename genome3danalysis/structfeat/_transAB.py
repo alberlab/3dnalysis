@@ -29,7 +29,7 @@ def run(struct_id, hss, params):
         raise KeyError('AB-compartment filename must be specified')
     # Load the A/B compartment file with pandas
     try:
-        ab = pd.read_csv(filename, sep='\t', header=None)[3].values.astype(str)
+        ab = pd.read_csv(filename, sep='\s+', header=None)[3].values.astype(str)
     except KeyError:
         raise KeyError('AB-compartment file not found')
     # Assert that AB track is correct
