@@ -70,3 +70,15 @@ We checked that the ICP and RG codes work, at least computationally (there was a
 
 Now we're applying the pipeline to the H1 dataset (HDS). We are in the process of processing
 the Markov clustering into our new pickle format. We will also need the GAP BedFile and the AB BedFile.
+
+
+January 29, 2024
+
+We finished setting up the data for the H1 run, and it's now running (it takes a lot of time to do trasAB).
+We fixed a bug related to how pandas reads the csv files (we now use '\s+' as separator instead of '\t').
+
+Next time - if the run on H1 finishes correctly - we should compare the results with the previous structural features.
+
+If everything is okay we can publish this version with structural features and work on the Markov Clustering.
+
+(points 3 4 5 6 of the previous list can be done later)
