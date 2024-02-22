@@ -166,6 +166,7 @@ cython_debug/
 *.npy
 *.pkl
 *.dat
+*.txt
 
 # ipyparallel submission files
 *err_controller
