@@ -1,7 +1,7 @@
 import numpy as np
-import h5py
+import pickle
 from alabtools.analysis import HssFile
-from alabtools.utils import Index
+import warnings
 import tempfile
 import os
 import sys
@@ -29,121 +29,65 @@ class SfFile(object):
         
     """
     
-    def __init__(self, h5_name: str, mode: str = 'r') -> None:
-        """ Initialize a SfFile object.
+    def __init__(self, filename, mode='r'):
         
-        The data of the object is encapsulated in a HDF5 file,
-        which can be opened in multiple modes.
-
-        Args:
-            h5_name (str): Path to the HDF5 file.
-            mode (str, optional): File access mode. Defaults to 'r'.
+        # assert the input filename
+        assert isinstance(filename, str), "The input filename must be a string."
+        assert filename.endswith('.sf'), "The input filename must end with .sf."
+        
+        # assert the input mode
+        assert mode in ['r', 'w'], "The input mode must be 'r' or 'w'."
+        
+        # set the filename and mode attributes
+        self.filename = filename
+        self.mode = mode
+        
+        if mode == 'r':
+            self.load()
+        
+        if mode == 'w':
+            self.nstruct = None
+            self.nbead = None
+            self.features = None
+            self.hss_filename = None
+            self.fitted = False
+            self.available_features = AVAILABLE_FEATURES
+            self.genome = None
+            self.index = None
+            self.data = {}
+            self.config = {}
+    
+    def load(self):
+        """Loads a SfFile from a pickle file.
         """
         
-        # Extend the name with its absolute path
-        h5_name = os.path.abspath(h5_name)
+        with open(self.filename, 'rb') as f:
+            loaded_sf = pickle.load(f)
+                 
+        assert hasattr(loaded_sf, 'nstruct'), "Loaded SfFile has no attribute 'nstruct'."
+        assert hasattr(loaded_sf, 'nbead'), "Loaded SfFile has no attribute 'nbead'."
+        assert hasattr(loaded_sf, 'features'), "Loaded SfFile has no attribute 'features'."
+        assert hasattr(loaded_sf, 'hss_filename'), "Loaded SfFile has no attribute 'hss_filename'."
         
-        # Check that h5_name has a valid path
-        if not os.path.exists(os.path.dirname(h5_name)):
-            raise FileNotFoundError("The path of the HDF5 file does not exist.")
+        if loaded_sf.fitted == False:
+            warnings.warn('Loaded SfFile has not been fitted.')
         
-        # Check that mode is valid
-        if not mode in ['r', 'r+', 'w', 'w-', 'x', 'a']:
-            raise ValueError("mode must be one of 'r', 'r+', 'w', 'w-', 'x', 'a'.")
+        # update the attributes of the current object
+        # (every object has a __dict__ attribute, which is a dictionary of its attributes.
+        # In this way, we can update the attributes of the current object with the attributes
+        # of the loaded object)
+        self.__dict__.update(loaded_sf.__dict__)
         
-        # If the file doesn't exists, make sure that mode is write (w, w-, x, r+, a)
-        if not os.path.exists(h5_name) and mode not in ['w', 'w-', 'x', 'r+', 'a']:
-            raise FileNotFoundError("The HDF5 file does not exist. Use mode 'w', 'w-', 'x', 'r+', 'a' to create it.")
-        
-        # Open the HDF5 file
-        self.h5_name = h5_name
-        self.h5 = h5py.File(h5_name, mode)
+        # Delete the loaded object
+        del loaded_sf
     
-    
-    # CONTAIN METHOD
-    def __contains__(self, name: str) -> bool:
-        """ Check if a dataset exists in the h5 file."""
-        return name in self.h5
-    
-    
-    # DELETE METHOD
-    def __delitem__(self, name: str) -> None:
-        """ Delete a dataset from the h5 file."""
-        del self.h5[name]
-    
-    
-    # SETTER FUNCTIONS
-    
-    def set_index(self, index: Index) -> None:
-        """ Set the Index object in the h5 file."""
-        index.save(self.h5)
-    
-    def set_feature(self, feature_name: str, matrix: np.ndarray) -> None:
-        """ Set a feature, along with its matrix, in the h5 file.
-        
-        The feature creates a group at the root level of the h5 file,
-        with the matrix as a dataset.
-        
-        Other datasets can be added to the group, e.g. mean, std,
-        but this is not mandatory, and thus is not implemented here.
-
-        Args:
-            feature_name (str)
-            matrix (np.ndarray): 2D feature matrix of shape (nstruct, nbead).
+    def save(self):
+        """Saves a SfFile to a pickle file.
         """
-        
-        # Check that the feature is not already in the h5 file
-        if feature_name in self:
-            raise ValueError("The feature '{}' already exists in the h5 file.".format(feature_name))
-
-        # Create a group for the feature (at the root level)
-        h5_group = self.h5.create_group(f'/{feature_name}')
-        
-        # Add the feature matrix to the group
-        h5_group.create_dataset('matrix', data=matrix, dtype=matrix.dtype)
+        with open(self.filename, 'wb') as f:
+            pickle.dump(self, f)
     
-    
-    # GETTER FUNCTIONS
-    
-    def get_index(self) -> Index:
-        """ Get the Index object from the h5 file."""
-        return Index(self.h5)
-    
-    def get_feature(self, feature_name: str, format: str = 'matrix') -> np.ndarray:
-        """ Get the feature data from the h5 file.
-        The 'format' key specifies what to retrieve, e.g.
-        - 'matrix': the feature matrix, 2D array of shape (nstruct, nbead)
-        - 'mean': the mean array, 1D array of shape (nbead,)
-        - ...
-        The available formats depend on the feature."""
-        
-        # Check that the feature exists in the h5 file
-        if feature_name not in self.h5:
-            raise ValueError("Feature {} not found in the h5 file.".format(feature_name))
-        # Check that the format is valid for the feature
-        if format not in self.h5[feature_name]:
-            raise ValueError("Format {} is not valid for feature {}.".format(format, feature_name))
-        
-        return self.h5[feature_name][format][:]
-    
-    def get_feature_list(self) -> list:
-        """ Get the list of feature matrices in the h5 file."""
-        # Get the list of keys in the h5 file
-        h5_keys = list(self.h5.keys())
-        # Remove the keys that are not feature matrices
-        remove_keys = ['index', 'genome']
-        for key in remove_keys:
-            if key in h5_keys:
-                h5_keys.remove(key)
-        return h5_keys
-    
-    
-    # DEFINE PROPERTIES (READ ONLY)
-    index = property(get_index, doc="Index object.")
-    feature_list = property(get_feature_list, doc="List of feature matrices.")
-    
-    
-    def run(self, cfg: dict) -> None:
+    def run(self, cfg):
         """Compute the Structural Features specified in the config file.
 
         Args:
@@ -170,6 +114,7 @@ class SfFile(object):
         self.nstruct = hss.nstruct
         self.nbead = hss.nbead
         self.hss_filename = hss_name
+        self.genome = hss.genome
         self.index = hss.index
         
         for feature in features:
@@ -236,34 +181,34 @@ class SfFile(object):
         # delete the temporary directory
         os.system('rm -rf {}'.format(temp_dir))
         
-        # Set the feature matrix in the h5 file
-        self.set_feature(feature, feat_mat)
-        
         # Compute the HAPLOID bulk quantities (mean, std and log normalizations)
-        feat_mean_arr, feat_std_arr = self.compute_feature_mean_std(feature)
-        feat_mean_arr_lnorm_gwide = self.compute_log_normalization(feat_mean_arr, self.index, method='genome-wide')
-        feat_mean_arr_lnorm_cwide = self.compute_log_normalization(feat_mean_arr, self.index, method='chromosome-wide')
-        feat_std_arr_lnorm_gwide = self.compute_log_normalization(feat_std_arr, self.index, method='genome-wide')
-        feat_std_arr_lnorm_cwide = self.compute_log_normalization(feat_std_arr, self.index, method='chromosome-wide')
+        feat_mean_arr, feat_std_arr = self.compute_feature_mean_std(feat_mat)
+        feat_mean_arr_lnorm_gwide = self.compute_log_normalization(feat_mean_arr)
+        feat_mean_arr_lnorm_cwide = self.compute_log_normalization(feat_mean_arr,
+                                                                   method='chromosome-wide')
+        feat_std_arr_lnorm_gwide = self.compute_log_normalization(feat_std_arr)
+        feat_std_arr_lnorm_cwide = self.compute_log_normalization(feat_std_arr,
+                                                                  method='chromosome-wide')
         
-        # Add the bulk quantities to feature group of the h5 file
-        h5_group = self.h5[feature]
-        h5_group.create_dataset('mean_arr', data=feat_mean_arr)
-        h5_group.create_dataset('std_arr', data=feat_std_arr)
-        h5_group.create_dataset('mean_arr_lnorm_gwide', data=feat_mean_arr_lnorm_gwide)
-        h5_group.create_dataset('mean_arr_lnorm_cwide', data=feat_mean_arr_lnorm_cwide)
-        h5_group.create_dataset('std_arr_lnorm_gwide', data=feat_std_arr_lnorm_gwide)
-        h5_group.create_dataset('std_arr_lnorm_cwide', data=feat_std_arr_lnorm_cwide)
+        # update the data of the current object
+        self.data[feature] = {'ss_mat': feat_mat,
+                              'mean_arr': feat_mean_arr,
+                              'std_arr': feat_std_arr,
+                              'mean_arr_lnorm_gwide': feat_mean_arr_lnorm_gwide,
+                              'mean_arr_lnorm_cwide': feat_mean_arr_lnorm_cwide,
+                              'std_arr_lnorm_gwide': feat_std_arr_lnorm_gwide,
+                              'std_arr_lnorm_cwide': feat_std_arr_lnorm_cwide}
         
         if 'contact_threshold' not in cfg['features'][feature]:
             return None
         
         # Compute the single-structure contact frequency matrix
         cnt_thresh = cfg['features'][feature]['contact_threshold']
+        cnt_mat = feat_mat <= cnt_thresh
         # Compute the HAPLOID average contact frequency array
-        freq_arr, _ = self.compute_feature_mean_std(feature, threshold=cnt_thresh)
-        # Add the association frequency array to feature group of the h5 file
-        h5_group.create_dataset('association_freq', data=freq_arr)
+        freq_arr, _ = self.compute_feature_mean_std(cnt_mat)
+        # Update the data of the current object
+        self.data[feature]['freq_arr'] = freq_arr
  
     @staticmethod
     def parallel_feature(struct_id, feature, cfg, temp_dir):
@@ -322,28 +267,9 @@ class SfFile(object):
         
         return feat_mat
     
-    def compute_feature_mean_std(self, feature_name: str, threshold: float = None) -> tuple:
-        """ Compute the mean and standard deviation of a feature.
-        
-        If a threshold is specified, the feature is thresholded before computing the mean and std,
-        thus computing the mean and std of the association frequency.
-
-        Args:
-            feature_name (str)
-            threshold (float, optional): Threshold value for Association Frequency.
-                                         If None, the normal distances are computed.
-
-        Returns:
-            (np.array): Mean array of the feature of shape (nbead_hapoloid,)
-            (np.array): Standard deviation array of the feature of shape (nbead_haploid,)
+    def compute_feature_mean_std(self, feat_mat):
+        """Compute the bulk quantities of the structural features.
         """
-        
-        # Get the feature matrix
-        feat_mat = self.get_feature(feature_name, format='matrix')
-        
-        # Binarize the feature matrix if a threshold is specified
-        if threshold is not None:
-            feat_mat = feat_mat <= threshold
         
         # Initialize the arrays
         feat_mean_arr = []
@@ -365,8 +291,7 @@ class SfFile(object):
         
         return feat_mean_arr, feat_std_arr
 
-    @staticmethod
-    def compute_log_normalization(arr: np.ndarray, index: Index, method: str = 'genome-wide') -> np.ndarray:
+    def compute_log_normalization(self, arr, method='genome-wide'):
         """Compute the log2 normalization of an array,
         i.e.  log2(arr / mean(arr)).
         
@@ -375,7 +300,6 @@ class SfFile(object):
 
         Args:
             arr (np.array): Array to normalize.
-            index (Index): Index object.
             method (str, optional): Either 'genome-wide' or 'chromosome-wide'.
                                     Defaults to 'genome-wide'.
 
@@ -384,7 +308,7 @@ class SfFile(object):
         """
         
         # Get the haploid chromstr array
-        chromstr_hap = index.chromstr[index.copy == 0]
+        chromstr_hap = self.index.chromstr[self.index.copy == 0]
         
         # Check that the array and the chromstr_hap array have the same length
         assert len(arr) == len(chromstr_hap),\
