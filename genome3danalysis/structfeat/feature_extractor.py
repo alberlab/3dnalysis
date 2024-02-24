@@ -137,11 +137,23 @@ class SfFile(object):
                 h5_keys.remove(key)
         return h5_keys
     
+    def get_feature_dataset_list(self, feature_name: str) -> list:
+        """ Get the list of datasets in the feature group."""
+        return list(self.h5[feature_name].keys())
+    
     
     # DEFINE PROPERTIES (READ ONLY)
     index = property(get_index, doc="Index object.")
     feature_list = property(get_feature_list, doc="List of feature matrices.")
     
+    
+    # CLOSE METHOD
+    def close(self) -> None:
+        """ Close the h5 file."""
+        self.h5.close()
+    
+    
+    # STRUCTURAL FEATURES EXTRACTION METHODS
     
     def run(self, cfg: dict) -> None:
         """Compute the Structural Features specified in the config file.
@@ -170,11 +182,11 @@ class SfFile(object):
         self.nstruct = hss.nstruct
         self.nbead = hss.nbead
         self.hss_filename = hss_name
-        self.index = hss.index
+        self.set_index(hss.index)
         
         for feature in features:
             assert isinstance(feature, str), "Each feature must be a string."
-            assert feature in self.available_features, "Feature {} is not available.".format(feature)
+            assert feature in AVAILABLE_FEATURES, "Feature {} is not available.".format(feature)
 
             self.run_feature(cfg, feature)
         
@@ -187,6 +199,8 @@ class SfFile(object):
             cfg: Configuration dictionary.
             feature: Feature name.
         """
+        
+        sys.stdout.write("Extracting feature: {}\n".format(feature))
 
         # open HSS file
         hss_name = cfg['hss_name']
@@ -211,9 +225,11 @@ class SfFile(object):
 
         # run the parallel and reduce tasks
         # feat_mat is a matrix of shape (nbead_multiploid, nstruct)
+        sys.stdout.write("Running parallel and reduce tasks...\n")
         feat_mat = controller.map_reduce(parallel_task,
                                          reduce_task,
                                          args=np.arange(hss.nstruct))
+        sys.stdout.write("Parallel and reduce tasks completed.\n")
         
         # Mask the gaps (or "non-domain regions") with NaNs
         try:
@@ -221,7 +237,7 @@ class SfFile(object):
             # It must be a 4-column BED file, where the 4th column is a boolean,
             # and with no header
             # (True if the region is a gap, False otherwise)
-            gap_file = cfg['gap_file']
+            gap_file = os.path.abspath(cfg['gap_file'])
             gap_hap = pd.read_csv(gap_file, sep='\s+', header=None)[3].values.astype(bool)
         except KeyError:
             # If the gap file is not specified, we assume that there are no gaps
@@ -232,12 +248,14 @@ class SfFile(object):
             gap_mtp[self.index.copy_index[i]] = gap_hap[i]
         # Mask the gaps
         feat_mat[gap_mtp, :] = np.nan
+        sys.stdout.write("Gaps masked.\n")
 
         # delete the temporary directory
         os.system('rm -rf {}'.format(temp_dir))
         
         # Set the feature matrix in the h5 file
         self.set_feature(feature, feat_mat)
+        sys.stdout.write("Feature matrix set in the h5 file.\n")
         
         # Compute the HAPLOID bulk quantities (mean, std and log normalizations)
         feat_mean_arr, feat_std_arr = self.compute_feature_mean_std(feature)
@@ -245,6 +263,7 @@ class SfFile(object):
         feat_mean_arr_lnorm_cwide = self.compute_log_normalization(feat_mean_arr, self.index, method='chromosome-wide')
         feat_std_arr_lnorm_gwide = self.compute_log_normalization(feat_std_arr, self.index, method='genome-wide')
         feat_std_arr_lnorm_cwide = self.compute_log_normalization(feat_std_arr, self.index, method='chromosome-wide')
+        sys.stdout.write("Bulk quantities computed.\n")
         
         # Add the bulk quantities to feature group of the h5 file
         h5_group = self.h5[feature]
@@ -254,6 +273,7 @@ class SfFile(object):
         h5_group.create_dataset('mean_arr_lnorm_cwide', data=feat_mean_arr_lnorm_cwide)
         h5_group.create_dataset('std_arr_lnorm_gwide', data=feat_std_arr_lnorm_gwide)
         h5_group.create_dataset('std_arr_lnorm_cwide', data=feat_std_arr_lnorm_cwide)
+        sys.stdout.write("Bulk quantities added to feature group.\n")
         
         if 'contact_threshold' not in cfg['features'][feature]:
             return None
@@ -290,10 +310,17 @@ class SfFile(object):
         out_name = os.path.join(temp_dir, feature + '_' + str(struct_id) + '.npy')
         np.save(out_name, feat_arr)
         
+        # Save an empty file to indicate that the computation is done
+        out_name = os.path.join(temp_dir, feature + '_' + str(struct_id) + '.done')
+        with open(out_name, 'w') as f:
+            pass
+        
         return out_name
     
     @staticmethod
     def reduce_feature(out_names, cfg, temp_dir, feature):
+        
+        sys.stdout.write("Reducing feature started.\n")
         
         # get hss_name from cfg
         try:
@@ -310,6 +337,7 @@ class SfFile(object):
         
         # initialize the structure matrix and bulk arrays
         feat_mat = np.zeros((hss.nbead, hss.nstruct))
+        sys.stdout.write("Feature matrix initialized in reduce_feature.\n")
         
         # Loop over the structures
         for structID in np.arange(hss.nstruct):
@@ -321,6 +349,9 @@ class SfFile(object):
                 raise IOError("File {} not found.".format(out_name))
         
         return feat_mat
+    
+    
+    # CALCULATIONS FROM FEATURE MATRICES METHODS
     
     def compute_feature_mean_std(self, feature_name: str, threshold: float = None) -> tuple:
         """ Compute the mean and standard deviation of a feature.
