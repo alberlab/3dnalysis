@@ -82,3 +82,25 @@ Next time - if the run on H1 finishes correctly - we should compare the results 
 If everything is okay we can publish this version with structural features and work on the Markov Clustering.
 
 (points 3 4 5 6 of the previous list can be done later)
+
+
+February 20, 2024
+
+The run on H1 didn't finish: it got stuck on the transAB computation.
+This is probably because the memory on the nodes is too small to handle the computation.
+
+I have implemented a memory_efficient version of the transAB computation, and it seems to work.
+
+However, I got a weird pickle error, and I decided to shift to HDF5 format for the data (something that I wanted to do anyway).
+
+
+February 23, 2024
+
+I changed the data structure from pickle to HDF5.
+
+I checked that it all works fine with the test data.
+
+When I tried it on the H1 data, now for some reason I get stuck at the first computation (radial).
+I don't know what the issue is: it seems like it can finish the parallel function successfully, but it doesn't enter the reduce function.
+
+I will have to understand what the issue is.
