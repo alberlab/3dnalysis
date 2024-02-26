@@ -1,6 +1,6 @@
 import numpy as np
-import pandas as pd
 from scipy.spatial.distance import cdist
+from .. import utils
 
 
 DEFAULT_DIST_CUTOFF = 500  # nm
@@ -16,7 +16,7 @@ def run(struct_id, hss, params):
         raise KeyError('AB-compartment filename must be specified')
     # Load the A/B compartment file with pandas
     try:
-        ab = pd.read_csv(filename, sep='\s+', header=None)[3].values.astype(str)
+        _, _, _, ab = utils.read_bed(filename, val_type=str)
     except KeyError:
         raise KeyError('AB-compartment file not found')
     # Assert that AB track is correct
@@ -70,7 +70,7 @@ def run_time_efficient(struct_id, hss, ab, params):
     inter_prox = np.logical_and(inter, prox)
     
     # Get the Trans AB matrices
-    ab = adapt_to_index(ab, hss.index)  # adapt AB track to multi-ploid index
+    ab = utils.adapt_haploid_to_index(ab, hss.index)  # adapt AB track to multi-ploid index
     ab_vstack = np.vstack([ab] * len(ab))  # convert AB track to a vertical stack (attention: not symmetric!)
     transA = np.logical_and(inter_prox, ab_vstack == 'A')
     transB = np.logical_and(inter_prox, ab_vstack == 'B')
@@ -117,7 +117,7 @@ def run_memory_efficient(struct_id, hss, ab, params):
         inter_prox = np.logical_and(inter, prox)
         
         # Get the Trans AB arrays
-        ab = adapt_to_index(ab, hss.index)
+        ab = utils.adapt_haploid_to_index(ab, hss.index)
         transA = np.logical_and(inter_prox, ab == 'A')
         transB = np.logical_and(inter_prox, ab == 'B')
         
@@ -127,22 +127,3 @@ def run_memory_efficient(struct_id, hss, ab, params):
         del inter_chrom, inter_copy, inter, dcap, dist_thresh, prox, inter_prox, transA, transB
     
     transAB_ratio
-
-
-def adapt_to_index(hap_track, index):
-    """Given a haploid track, adapts it to the multi-ploid index.
-
-    Args:
-        hap_track (np.ndarray(nbead_hap)): haplotype track
-        index (alabtools.utils.Index): index object
-    Return:
-        np.ndarray(nbeads): adapted track
-    """
-    multi_track = np.zeros(len(index), dtype=hap_track.dtype)
-    for i in index.copy_index:
-        # copy_index is a Dictionary, where:
-        # - keys are haploid indices (0, 1, 2, ..., nbead_hap - 1)
-        # - values are the multiploid indices for the corresponding haploid index
-        # for examples {0: [0, 1000], 1: [1, 1001], ...}
-        multi_track[index.copy_index[i]] = hap_track[i]
-    return multi_track
