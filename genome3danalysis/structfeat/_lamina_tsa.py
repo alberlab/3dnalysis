@@ -3,7 +3,7 @@ from scipy.spatial.distance import cdist
 from alabtools.analysis import HssFile
 
 AVAILABLE_SHAPES = ['sphere', 'ellipsoid', 'experimental']
-DEFAULT_EXTERIOR_THRESHOLD = 0.75
+DEFAULT_EXTERIOR_THRESHOLD = 0.85
 DEFAULT_TSA_EXPONENT = 0.004  # TODO: check this value
     
 def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
