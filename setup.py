@@ -1,28 +1,30 @@
-#!/usr/bin/env python
-from distutils.core import setup, Extension
+from setuptools import setup, find_packages
 
-import numpy
-import sys
-
-# Add include and library directories from conda envs for swig.
-std_include = [sys.prefix + '/include', sys.prefix + '/Library/include']
-std_library = [sys.prefix + '/lib', sys.prefix + '/Library/lib']
-
-# Obtain the numpy include directory.  This logic works across numpy versions.
-try:
-    numpy_include = numpy.get_include()
-except AttributeError:
-    numpy_include = numpy.get_numpy_include()
+with open("README.md", "r") as fh:
+    long_description = fh.read()
 
 setup(
-    name='genome3danalysis',
-    version='0.0.0+strucfeat',
-    author='Francesco Musella, Ye West',
-    author_email='fmusella@g.ucla.edu',
-    url='https://github.com/alberlab/genome3danalysis',
-    description='3D Genome Analysis Tools',
-    packages=['genome3danalysis'],
-    # tests_require=tests_require,
-    # extras_require=extras_require,
-    include_dirs=[numpy_include]+std_include
+    name="genome3danalysis",
+    version="0.0+strucfeat",
+    author="Francesco Musella, Ye West",
+    author_email="fmusella@g.ucla.edu",
+    description="3D Genome Analysis Tools",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    url="https://github.com/alberlab/genome3danalysis",
+    packages=find_packages(),
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "Operating System :: Unix",
+    ],
+    python_requires='>=3.7.3',
+    install_requires=[
+        "numpy>=1.20.3",
+        "alabtools>=1.1.13",
+    ],
+    entry_points={
+        'console_scripts': [
+              'structfeat-run=genome3danalysis.structfeat.feature_extractor_run:main',
+        ],
+    }
 )
