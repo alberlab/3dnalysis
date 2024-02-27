@@ -7,7 +7,7 @@ import os
 import sys
 from functools import partial
 from alabtools.parallel import Controller
-import pandas as pd
+from .. import utils
 from . import _radial
 from . import _lamina
 from . import _lamina_tsa
@@ -200,7 +200,7 @@ class SfFile(object):
             feature: Feature name.
         """
         
-        sys.stdout.write("Extracting feature: {}\n".format(feature))
+        sys.stdout.write("\nExtracting feature: {}\n".format(feature))
 
         # open HSS file
         hss_name = cfg['hss_name']
@@ -208,6 +208,7 @@ class SfFile(object):
         
         # create a temporary directory to store nodes' results
         temp_dir = tempfile.mkdtemp(dir=os.getcwd())
+        
         sys.stdout.write("Temporary directory for nodes' results: {}\n".format(temp_dir))
         
         # create a Controller
@@ -225,11 +226,11 @@ class SfFile(object):
 
         # run the parallel and reduce tasks
         # feat_mat is a matrix of shape (nbead_multiploid, nstruct)
-        sys.stdout.write("Running parallel and reduce tasks...\n")
         feat_mat = controller.map_reduce(parallel_task,
                                          reduce_task,
                                          args=np.arange(hss.nstruct))
-        sys.stdout.write("Parallel and reduce tasks completed.\n")
+        
+        sys.stdout.write("Parallelization and reduction tasks completed.\n")
         
         # Mask the gaps (or "non-domain regions") with NaNs
         try:
@@ -238,24 +239,22 @@ class SfFile(object):
             # and with no header
             # (True if the region is a gap, False otherwise)
             gap_file = os.path.abspath(cfg['gap_file'])
-            gap_hap = pd.read_csv(gap_file, sep='\s+', header=None)[3].values.astype(bool)
+            _, _, _, gap_hap = utils.read_bed(gap_file, val_type=bool)
         except KeyError:
             # If the gap file is not specified, we assume that there are no gaps
             gap_hap = np.zeros(len(self.index.copy_index), dtype=bool)
         # Convert gap to multiploid version
-        gap_mtp = np.zeros(len(self.index), dtype=bool)
-        for i in self.index.copy_index:
-            gap_mtp[self.index.copy_index[i]] = gap_hap[i]
+        gap_mtp = utils.adapt_haploid_to_index(gap_hap, self.index)
         # Mask the gaps
         feat_mat[gap_mtp, :] = np.nan
-        sys.stdout.write("Gaps masked.\n")
+        
+        sys.stdout.write("Gaps masked\n")
 
         # delete the temporary directory
         os.system('rm -rf {}'.format(temp_dir))
         
         # Set the feature matrix in the h5 file
         self.set_feature(feature, feat_mat)
-        sys.stdout.write("Feature matrix set in the h5 file.\n")
         
         # Compute the HAPLOID bulk quantities (mean, std and log normalizations)
         feat_mean_arr, feat_std_arr = self.compute_feature_mean_std(feature)
@@ -263,7 +262,6 @@ class SfFile(object):
         feat_mean_arr_lnorm_cwide = self.compute_log_normalization(feat_mean_arr, self.index, method='chromosome-wide')
         feat_std_arr_lnorm_gwide = self.compute_log_normalization(feat_std_arr, self.index, method='genome-wide')
         feat_std_arr_lnorm_cwide = self.compute_log_normalization(feat_std_arr, self.index, method='chromosome-wide')
-        sys.stdout.write("Bulk quantities computed.\n")
         
         # Add the bulk quantities to feature group of the h5 file
         h5_group = self.h5[feature]
@@ -273,9 +271,11 @@ class SfFile(object):
         h5_group.create_dataset('mean_arr_lnorm_cwide', data=feat_mean_arr_lnorm_cwide)
         h5_group.create_dataset('std_arr_lnorm_gwide', data=feat_std_arr_lnorm_gwide)
         h5_group.create_dataset('std_arr_lnorm_cwide', data=feat_std_arr_lnorm_cwide)
-        sys.stdout.write("Bulk quantities added to feature group.\n")
+        
+        sys.stdout.write("Bulk quantities added to the h5 file\n")
         
         if 'contact_threshold' not in cfg['features'][feature]:
+            sys.stdout.write("Finished\n\n")
             return None
         
         # Compute the single-structure contact frequency matrix
@@ -284,6 +284,9 @@ class SfFile(object):
         freq_arr, _ = self.compute_feature_mean_std(feature, threshold=cnt_thresh)
         # Add the association frequency array to feature group of the h5 file
         h5_group.create_dataset('association_freq', data=freq_arr)
+        
+        sys.stdout.write("Association frequency added to the h5 file\n")
+        sys.stdout.write("Finished\n\n")
  
     @staticmethod
     def parallel_feature(struct_id, feature, cfg, temp_dir):
@@ -310,17 +313,10 @@ class SfFile(object):
         out_name = os.path.join(temp_dir, feature + '_' + str(struct_id) + '.npy')
         np.save(out_name, feat_arr)
         
-        # Save an empty file to indicate that the computation is done
-        out_name = os.path.join(temp_dir, feature + '_' + str(struct_id) + '.done')
-        with open(out_name, 'w') as f:
-            pass
-        
         return out_name
     
     @staticmethod
     def reduce_feature(out_names, cfg, temp_dir, feature):
-        
-        sys.stdout.write("Reducing feature started.\n")
         
         # get hss_name from cfg
         try:
@@ -337,7 +333,6 @@ class SfFile(object):
         
         # initialize the structure matrix and bulk arrays
         feat_mat = np.zeros((hss.nbead, hss.nstruct))
-        sys.stdout.write("Feature matrix initialized in reduce_feature.\n")
         
         # Loop over the structures
         for structID in np.arange(hss.nstruct):
@@ -380,13 +375,14 @@ class SfFile(object):
         feat_mean_arr = []
         feat_std_arr = []
         
-        # Loop over the haploid indices
-        for i in self.index.copy_index:
-            # copy_index is a Dictionary, where:
-            # - keys are haploid indices (0, 1, 2, ..., nbead_hap - 1)
-            # - values are the multiploid indices for the corresponding haploid index
-            # for examples {0: [0, 1000], 1: [1, 1001], ...}
-            feat_submat_i = feat_mat[self.index.copy_index[i], :]
+        # Loop over the haploid indices using the copy_index
+        # copy_index is a Dictionary, where:
+        #   - keys are haploid indices (0, 1, 2, ..., nbead_hap - 1)
+        #   - values are the multiploid indices for the corresponding haploid index
+        # for examples {0: [0, 1000], 1: [1, 1001], ...}
+        copy_index = self.index.copy_index
+        for i in copy_index:
+            feat_submat_i = feat_mat[copy_index[i], :]
             feat_mean_arr.append(np.nanmean(feat_submat_i))
             feat_std_arr.append(np.nanstd(feat_submat_i))
         
