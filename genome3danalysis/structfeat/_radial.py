@@ -1,8 +1,21 @@
 import numpy as np
+from alabtools.analysis import HssFile
 
 AVAILABLE_SHAPES = ['sphere', 'ellipsoid', 'experimental']
     
-def run(struct_id, hss, params):
+def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
+    """ Compute the radial distance of each bead in a structure to a given center and shape.
+    
+    Currently, only sphere and ellipsoid shapes are supported.
+
+    Args:
+        struct_id (int): The index of the structure in the HSS file.
+        hss (alabtools.analysis.HssFile)
+        params (dict): A dictionary containing the parameters for the analysis.
+
+    Returns:
+        (np.ndarray): distances of each bead to the center of the shape.
+    """
     
     # Read the center or set it to [0, 0, 0]
     try:

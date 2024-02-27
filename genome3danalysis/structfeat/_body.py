@@ -1,8 +1,27 @@
 import numpy as np
 from scipy.spatial.distance import cdist
 import pickle
+from alabtools.analysis import HssFile
+
+DEFAULT_TSA_EXPONENT = 0.004  # TODO: check this parameter!
+
+def run(struct_id: int, hss: HssFile, params: dict, what_to_measure: str) -> np.ndarray:
+    """ Calculate either the distance or the TSA-distance between each bead and the bodies of interest, e.g. speckles.
     
-def run(struct_id, hss, params, what_to_measure):
+    The distance is calculated as the minimum distance between each bead and each body.
+    
+    The TSA-distance is calculated as the sum of the exponential of the negative distance between each bead and each body:
+           TSA[i] = sum_j exp(-alpha * dist[i,j])
+
+    Args:
+        struct_id (int): The index of the structure in the HSS file.
+        hss (alabtools.analysis.HssFile)
+        params (dict): A dictionary containing the parameters for the analysis.
+        what_to_measure (str): Either 'dist' or 'tsa', to calculate the distance or the TSA-distance, respectively.
+
+    Returns:
+        (np.ndarray): distance or TSA-distance for each bead.
+    """
     
     # Read file name
     try:
@@ -41,6 +60,6 @@ def run(struct_id, hss, params, what_to_measure):
         try:
             tsa_alpha = params['tsa_exponent']
         except KeyError:
-            tsa_alpha = 0.004  # CHECK TSA-SEQ PAPER FOR THIS VALUE!
+            tsa_alpha = DEFAULT_TSA_EXPONENT
         return np.sum(np.exp(- tsa_alpha * dist_bodies), axis=1)
     

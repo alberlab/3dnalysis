@@ -20,7 +20,7 @@ def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
         params (dict): A dictionary containing the parameters for the analysis.
 
     Returns:
-        (np.ndarray): The inter-chromosomal contact probability of each bead in the structure.
+        (np.ndarray): The trans A/B ratio for each bead in the structure.
     """
     
     # Read A/B compartment file name

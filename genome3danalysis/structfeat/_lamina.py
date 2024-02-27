@@ -1,8 +1,23 @@
 import numpy as np
+from alabtools.analysis import HssFile
 
 AVAILABLE_SHAPES = ['sphere', 'ellipsoid', 'experimental']
     
-def run(struct_id, hss, params):
+def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
+    """ Compute the lamin distance for a given structure.
+    
+    The lamin distance is the distance from each bead to the closest point in the lamina.
+    
+    The lamina is defined by a center and a shape: currently, only spheres and ellipsoids are supported.
+
+    Args:
+        struct_id (int): The index of the structure in the HSS file.
+        hss (alabtools.analysis.HssFile)
+        params (dict): A dictionary containing the parameters for the analysis.
+
+    Returns:
+        (np.ndarray): distances from each bead to the lamina.
+    """
     
     # Read the center or set it to [0, 0, 0]
     try:

@@ -1,9 +1,26 @@
 import numpy as np
 from scipy.spatial.distance import cdist
+from alabtools.analysis import HssFile
 
 AVAILABLE_SHAPES = ['sphere', 'ellipsoid', 'experimental']
+DEFAULT_EXTERIOR_THRESHOLD = 0.75
+DEFAULT_TSA_EXPONENT = 0.004  # TODO: check this value
     
-def run(struct_id, hss, params):
+def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
+    """ Compute the lamin TSA-seq signal for a given structure.
+    
+    The lamina is estimated from the most external beads of the structure.
+    The TSA-seq signal is computed as the sum of the exponential of the distances to the lamina:
+        TSA[i] = sum_j exp(-alpha * dist(i, j))
+
+    Args:
+        struct_id (int): The index of the structure in the HSS file.
+        hss (alabtools.analysis.HssFile)
+        params (dict): A dictionary containing the parameters for the analysis.
+
+    Returns:
+        (np.ndarray): TSA-distances to the lamina for each bead in the structure.
+    """
     
     # Read the center or set it to [0, 0, 0]
     try:
@@ -34,7 +51,7 @@ def run(struct_id, hss, params):
     try:
         ext_thr = params['exterior_threshold']
     except KeyError:
-        ext_thr = 0.75
+        ext_thr = DEFAULT_EXTERIOR_THRESHOLD
     # Assert it's a float between 0 and 1
     assert isinstance(ext_thr, float), 'Exterior threshold must be a float'
     assert ext_thr >= 0 and ext_thr <= 1, 'Exterior threshold must be between 0 and 1'
@@ -43,7 +60,7 @@ def run(struct_id, hss, params):
     try:
         tsa_alpha = params['tsa_exponent']
     except KeyError:
-        tsa_alpha = 0.004  # CHECK TSA-SEQ PAPER FOR THIS VALUE!
+        tsa_alpha = DEFAULT_TSA_EXPONENT
     assert isinstance(tsa_alpha, float), 'TSA-seq exponent must be a float'
     
     # get coordinates of struct_id
