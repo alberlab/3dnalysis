@@ -1,15 +1,29 @@
 import numpy as np
-from scipy.spatial.distance import cdist
+from alabtools.utils import Index
+from alabtools.analysis import HssFile
 from .. import utils
 
-
 DEFAULT_DIST_CUTOFF = 500  # nm
-DEFAULT_METHOD = 'memory_efficient'
 
-
-def run(struct_id, hss, params):
+def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
+    """ Calculate the trans A/B ratio for each bead in the structure.
     
-    # Read file name
+    Trans A/B ratio is defined as the ratio of the number of inter-chromosomal A beads within a distance threshold
+    divided by the number of inter-chromosomal B beads within the same distance threshold:
+        transAB[i] = N_trans_A[i] / N_trans_B[i],
+        where N_trans_A[i] is the number of inter-chromosomal A beads within a distance threshold of bead i,
+        and N_trans_B[i] is the number of inter-chromosomal B beads within the same distance threshold of bead i.
+
+    Args:
+        struct_id (int): The index of the structure in the HSS file.
+        hss (alabtools.analysis.HssFile)
+        params (dict): A dictionary containing the parameters for the analysis.
+
+    Returns:
+        (np.ndarray): The inter-chromosomal contact probability of each bead in the structure.
+    """
+    
+    # Read A/B compartment file name
     try:
         filename = params['filename']
     except KeyError:
@@ -25,105 +39,63 @@ def run(struct_id, hss, params):
         'AB-compartment track must have the same length as the number of haploid beads in the structure'
     assert len(np.unique(ab)) == 2 or len(np.unique(ab)) == 3,\
         'AB-compartment track must contain only A and B and optionally NA (unspecified format)'
-    assert 'A' in np.unique(ab) and 'B' in np.unique(ab), 'AB-compartment track must contain A and B'
+    assert 'A' in np.unique(ab) and 'B' in np.unique(ab), 'AB-compartment track must contain A and B'    
+    # Adapt AB track to multi-ploid index
+    ab = utils.adapt_haploid_to_index(ab, hss.index)
     
-    # Choose method to run
+    # Get the surface-to-surface distance threshold
     try:
-        method = params['method']
-    except KeyError:
-        method = DEFAULT_METHOD
-    
-    # Run the transAB analysis with the chosen method
-    if method == 'time_efficient':
-        return run_time_efficient(struct_id, hss, ab, params)
-    elif method == 'memory_efficient':
-        return run_memory_efficient(struct_id, hss, ab, params)
-
-
-def run_time_efficient(struct_id, hss, ab, params):
-    """ Computations are done in a time-efficient way, but memory consumption is higher.
-    
-    Calculations are done using numpy matrices, avoiding loops,
-    which might be memory consuming depending on the number of structures and resolution."""
-    
-    # get coordinates of struct_id
-    coord = hss.coordinates[:, struct_id, :]
-    
-    # Find the inter-chromosomal matrix (inter_ij = True if i and j are on different chromosomal alleles)
-    inter_chrom = hss.index.chrom[:, None] != hss.index.chrom[None, :]
-    inter_copy = hss.index.copy[:, None] != hss.index.copy[None, :]
-    inter = np.logical_or(inter_chrom, inter_copy)
-    
-    # Find the proximity matrix (prox_ij = True if i and j are within a certain distance)
-    try:  # get surface-to-surface distance threshold
         dist_sts_thresh = params['dist_cutoff']
     except KeyError:
         dist_sts_thresh = DEFAULT_DIST_CUTOFF
-    # Get bead radii sum matrix (dcap_ij = ri + rj)
-    dcap = cdist(hss.radii[:, None], -hss.radii[:, None])
-    # Get distance threshold matrix
-    dist_thresh = dcap + dist_sts_thresh
-    # Get proximity matrix
-    prox = cdist(coord, coord, 'euclidean') < dist_thresh
-    
-    # Combine inter and prox matrices
-    inter_prox = np.logical_and(inter, prox)
-    
-    # Get the Trans AB matrices
-    ab = utils.adapt_haploid_to_index(ab, hss.index)  # adapt AB track to multi-ploid index
-    ab_vstack = np.vstack([ab] * len(ab))  # convert AB track to a vertical stack (attention: not symmetric!)
-    transA = np.logical_and(inter_prox, ab_vstack == 'A')
-    transB = np.logical_and(inter_prox, ab_vstack == 'B')
-    
-    # Get TransAB ratio
-    transAB_ratio = np.sum(transA, axis=1) / (np.sum(transA, axis=1) + np.sum(transB, axis=1))
-    
-    return transAB_ratio
-
-
-def run_memory_efficient(struct_id, hss, ab, params):
-    """ Computations are done in a memory-efficient way, but time consumption is higher.
-    
-    Instead of using numpy matrices, calculations are done using loops, with one bead at a time,
-    and the most complex structure is a numpy array. """
     
     # get coordinates of struct_id
     coord = hss.coordinates[:, struct_id, :]
     
+    # get the radii of the beads
+    radii = hss.radii
+    
+    # get the index
+    index = hss.index
+    index: Index
+    
     # Initialize the transAB_ratio
-    transAB_ratio = np.zeros(len(hss.index))
+    transAB_ratio = np.zeros(len(index)).astype(float)
     
     # Loop over all beads
-    for i in range(len(hss.index)):
+    for i in range(len(index)):
         
-        # Find the inter-chromosomal array (inter_ij = True if i and j are on different chromosomal alleles. fixed i)
-        inter_chrom = hss.index.chrom[i] != hss.index.chrom
-        inter_copy = hss.index.copy[i] != hss.index.copy
-        inter = np.logical_or(inter_chrom, inter_copy)
+        # FIND PROXIMAL BEADS
+        # First, we get the center-to-center distances between the bead i and all other beads
+        dists = np.linalg.norm(coord - coord[i], axis=1)
+        # Then, we get the center-to-center distance trhesholds between bead i and all other beads,
+        # which is the sum of the radii and the surface-to-surface distance threshold:
+        #       dcap_ij = ri + rj + d_sts_thresh, fixed i
+        dcap = radii[i] + radii + dist_sts_thresh
+        # Finally, we get the indices of the beads that are within the distance threshold
+        prox_beads = np.where(dists < dcap)[0]
+        # Remove the bead i from the proximal beads (no self-interactions)
+        prox_beads = prox_beads[prox_beads != i]
         
-        # Find the proximity matrix (prox_ij = True if i and j are within a certain distance)
-        try:  # get surface-to-surface distance threshold
-            dist_sts_thresh = params['dist_cutoff']
-        except KeyError:
-            dist_sts_thresh = DEFAULT_DIST_CUTOFF
-        # Get bead radii sum array (dcap_ij = ri + rj, fixed i)
-        dcap = hss.radii[i] + hss.radii
-        # Get distance threshold array
-        dist_thresh = dcap + dist_sts_thresh
-        # Get proximity array
-        prox = np.linalg.norm(coord - coord[i], axis=1) < dist_thresh
+        # FILTER INTER-CHROMOSOMAL FROM PROXIMAL BEADS
+        # Get the chromosome and copy of the proximal beads
+        chrom_prox_beads = index.chrom[prox_beads]
+        copy_prox_beads = index.copy[prox_beads]
+        # Get a mask that filters only the proximal beads that are inter-chromosomal (different chromosomes or different copies)
+        inter_mask = np.logical_or(chrom_prox_beads != index.chrom[i], copy_prox_beads != index.copy[i])
+        # Get the proximal beads that are inter-chromosomal
+        prox_inter_beads = prox_beads[inter_mask]
         
-        # Combine inter and prox arrays
-        inter_prox = np.logical_and(inter, prox)
+        # GET TRANSAB RATIO
+        # Get the A/B identity of the proximal inter-chromosomal beads
+        ab_prox_inter_beads = ab[prox_inter_beads]
+        # Get the TransAB ratio: n_trans(A) / n_trans(B)
+        # TODO: CHECK: IS IT n_trans(A) / (n_trans(A) + n_trans(B)) instead??
+        if np.sum(ab_prox_inter_beads == 'B') == 0:
+            transAB_ratio[i] = np.nan
+        else:
+            transAB_ratio[i] = np.sum(ab_prox_inter_beads == 'A') / np.sum(ab_prox_inter_beads == 'B')
         
-        # Get the Trans AB arrays
-        ab = utils.adapt_haploid_to_index(ab, hss.index)
-        transA = np.logical_and(inter_prox, ab == 'A')
-        transB = np.logical_and(inter_prox, ab == 'B')
-        
-        # Get TransAB ratio
-        transAB_ratio[i] = np.sum(transA) / (np.sum(transA) + np.sum(transB))
-        
-        del inter_chrom, inter_copy, inter, dcap, dist_thresh, prox, inter_prox, transA, transB
+        del dcap, dists, prox_beads, chrom_prox_beads, copy_prox_beads, inter_mask, prox_inter_beads, ab_prox_inter_beads
     
-    transAB_ratio
+    return transAB_ratio

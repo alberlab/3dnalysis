@@ -1,35 +1,72 @@
 import numpy as np
-import pandas as pd
-from scipy.spatial.distance import cdist
+from alabtools.utils import Index
+from alabtools.analysis import HssFile
 
-def run(struct_id, hss, params):
+DEFAULT_DIST_CUTOFF = 500  # nm
+
+def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
+    """ Calculate the inter-chromosomal contact probability (ICP) of a structure.
+    
+    ICP is defined as the ratio of the number of inter-chromosomal contacts to the total number of contacts:
+        ICP[i] = N_inter[i] / N_total[i],
+        where N_inter[i] is the number of inter-chromosomal beads within a distance threshold of bead i,
+        and N_total[i] is the total number of beads within the distance threshold of bead i.
+
+    Args:
+        struct_id (int): The index of the structure in the HSS file.
+        hss (alabtools.analysis.HssFile)
+        params (dict): A dictionary containing the parameters for the analysis.
+
+    Returns:
+        (np.ndarray): The inter-chromosomal contact probability of each bead in the structure.
+    """
     
     # get coordinates of struct_id
     coord = hss.coordinates[:, struct_id, :]
     
-    # Find the inter-chromosomal matrix (inter_ij = True if i and j are on different chromosomal alleles)
-    inter_chrom = hss.index.chrom[:, None] != hss.index.chrom[None, :]
-    inter_copy = hss.index.copy[:, None] != hss.index.copy[None, :]
-    inter = np.logical_or(inter_chrom, inter_copy)
+    # get the radii of the beads
+    radii = hss.radii
     
-    # Find the proximity matrix (prox_ij = True if i and j are within a certain distance)
-    try:  # get surface-to-surface distance threshold
+    # get the index
+    index = hss.index
+    index: Index
+    
+    # get the surface-to-surface distance threshold
+    try:
         dist_sts_thresh = params['dist_cutoff']
     except KeyError:
-        dist_sts_thresh = 500  # nm
-    # Get bead radii sum matrix (dcap_ij = ri + rj)
-    dcap = cdist(hss.radii[:, None], -hss.radii[:, None])
-    # Get distance threshold matrix
-    dist_thresh = dcap + dist_sts_thresh
-    # Get proximity matrix
-    prox = cdist(coord, coord, 'euclidean') < dist_thresh
-    # Set proximity matrix diagonal to False (bead is not in proximity with itself)
-    np.fill_diagonal(prox, False)
+        dist_sts_thresh = DEFAULT_DIST_CUTOFF
     
-    # Combine inter and prox matrices
-    inter_prox = np.logical_and(inter, prox)
-
-    # Get Inter-chromosomal contact ratio
-    inter_ratio = np.sum(inter_prox, axis=1) / np.sum(prox, axis=1)
+    # initialize the inter-chromosomal contact ratio
+    inter_ratio = np.zeros(len(index)).astype(float)
+    
+    # loop over the beads to calculate the inter-chromosomal contact ratio
+    for i in range(len(index)):
+        
+        # FIND PROXIMAL BEADS
+        # First, we get the center-to-center distances between the bead i and all other beads
+        dists = np.linalg.norm(coord - coord[i], axis=1)
+        # Then, we get the center-to-center distance trhesholds between bead i and all other beads,
+        # which is the sum of the radii and the surface-to-surface distance threshold:
+        #       dcap_ij = ri + rj + d_sts_thresh, fixed i
+        dcap = radii[i] + radii + dist_sts_thresh
+        # Finally, we get the indices of the beads that are within the distance threshold
+        prox_beads = np.where(dists < dcap)[0]
+        # Remove the bead i from the proximal beads (no self-interaction)
+        prox_beads = prox_beads[prox_beads != i]
+        
+        # FILTER INTER-CHROMOSOMAL FROM PROXIMAL BEADS
+        # Get the chromosome and copy of the proximal beads
+        chrom_prox_beads = index.chrom[prox_beads]
+        copy_prox_beads = index.copy[prox_beads]
+        # Get a mask that filters only the proximal beads that are inter-chromosomal (different chromosomes or different copies)
+        inter_mask = np.logical_or(chrom_prox_beads != index.chrom[i], copy_prox_beads != index.copy[i])
+        # Get the proximal beads that are inter-chromosomal
+        prox_inter_beads = prox_beads[inter_mask]
+        
+        # GET INTER-CHROMOSOMAL CONTACT RATIO
+        inter_ratio[i] = len(prox_inter_beads) / len(prox_beads)
+        
+        del dists, dcap, prox_beads, chrom_prox_beads, copy_prox_beads, inter_mask, prox_inter_beads
     
     return inter_ratio
