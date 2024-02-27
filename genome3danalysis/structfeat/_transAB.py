@@ -10,7 +10,7 @@ def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
     
     Trans A/B ratio is defined as the ratio of the number of inter-chromosomal A beads within a distance threshold
     divided by the number of inter-chromosomal B beads within the same distance threshold:
-        transAB[i] = N_trans_A[i] / N_trans_B[i],
+        transAB[i] = N_trans_A[i] / (N_trans_A[i] + N_trans_B[i])
         where N_trans_A[i] is the number of inter-chromosomal A beads within a distance threshold of bead i,
         and N_trans_B[i] is the number of inter-chromosomal B beads within the same distance threshold of bead i.
 
@@ -89,12 +89,10 @@ def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
         # GET TRANSAB RATIO
         # Get the A/B identity of the proximal inter-chromosomal beads
         ab_prox_inter_beads = ab[prox_inter_beads]
-        # Get the TransAB ratio: n_trans(A) / n_trans(B)
-        # TODO: CHECK: IS IT n_trans(A) / (n_trans(A) + n_trans(B)) instead??
-        if np.sum(ab_prox_inter_beads == 'B') == 0:
-            transAB_ratio[i] = np.nan
-        else:
-            transAB_ratio[i] = np.sum(ab_prox_inter_beads == 'A') / np.sum(ab_prox_inter_beads == 'B')
+        # Get the TransAB ratio: n_trans(A) / (n_trans(A) + n_trans(B))
+        n_trans_A = np.sum(ab_prox_inter_beads == 'A')
+        n_trans_B = np.sum(ab_prox_inter_beads == 'B')
+        transAB_ratio[i] = n_trans_A / (n_trans_A + n_trans_B)
         
         del dcap, dists, prox_beads, chrom_prox_beads, copy_prox_beads, inter_mask, prox_inter_beads, ab_prox_inter_beads
     
