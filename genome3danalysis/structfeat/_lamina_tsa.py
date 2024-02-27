@@ -43,9 +43,11 @@ def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
         except KeyError:
             raise KeyError('Radius must be specified')
         if shape == 'sphere':
-            assert isinstance(radius, float), 'Radius must be a float since shape is a sphere'
+            assert isinstance(radius, (int, float)), 'Radius must be a number since shape is a sphere'
         elif shape == 'ellipsoid':
             assert len(radius) == 3, 'Radius must be a 3D vector since shape is an ellipsoid'
+            for r in radius:
+                assert isinstance(r, (int, float)), 'Radius must be a 3D vector of numbers since shape is an ellipsoid'
     
     # Read the exterior threshold for lamina beads
     try:
