@@ -1,5 +1,6 @@
 import numpy as np
 import h5py
+import json
 from alabtools.analysis import HssFile
 from alabtools.utils import Index
 import tempfile
@@ -74,6 +75,15 @@ class SfFile(object):
     
     # SETTER FUNCTIONS
     
+    def set_configuration(self, cfg: dict) -> None:
+        """ Set the configuration dictionary in the h5 file.
+
+        Args:
+            cfg (dict): Configuration dictionary.
+        """
+        cfg_str = json.dumps(cfg, indent=3)
+        self.h5.attrs['configuration'] = cfg_str
+    
     def set_index(self, index: Index) -> None:
         """ Set the Index object in the h5 file."""
         index.save(self.h5)
@@ -105,6 +115,11 @@ class SfFile(object):
     
     # GETTER FUNCTIONS
     
+    def get_configuration(self) -> dict:
+        """ Get the configuration dictionary from the h5 file."""
+        cfg_str = self.h5.attrs['configuration']
+        return json.loads(cfg_str)
+    
     def get_index(self) -> Index:
         """ Get the Index object from the h5 file."""
         return Index(self.h5)
@@ -131,7 +146,7 @@ class SfFile(object):
         # Get the list of keys in the h5 file
         h5_keys = list(self.h5.keys())
         # Remove the keys that are not feature matrices
-        remove_keys = ['index', 'genome']
+        remove_keys = ['index', 'genome', 'configuration']
         for key in remove_keys:
             if key in h5_keys:
                 h5_keys.remove(key)
@@ -143,6 +158,7 @@ class SfFile(object):
     
     
     # DEFINE PROPERTIES (READ ONLY)
+    configuration = property(get_configuration, doc="Configuration dictionary.")
     index = property(get_index, doc="Index object.")
     feature_list = property(get_feature_list, doc="List of feature matrices.")
     
@@ -155,15 +171,17 @@ class SfFile(object):
     
     # STRUCTURAL FEATURES EXTRACTION METHODS
     
-    def run(self, cfg: dict) -> None:
+    def run(self, cfg: object) -> None:
         """Compute the Structural Features specified in the config file.
 
         Args:
-            cfg (dict): Configuration dictionary.
+            cfg (object): Either a string (path to a json file) or a dictionary.
         """
         
-        # Save the config file in the current object
-        self.config = cfg
+        # Read and process the configuration file
+        cfg = read_configuration(cfg)
+        # Set the configuration in the h5 file
+        self.set_configuration(cfg)
         
         # Read features
         try:
@@ -179,9 +197,8 @@ class SfFile(object):
         except KeyError:
             "hss_name not found in cfg."
         hss = HssFile(hss_name, 'r')
-        self.nstruct = hss.nstruct
-        self.nbead = hss.nbead
-        self.hss_filename = hss_name
+        
+        # Set the index in the h5 file
         self.set_index(hss.index)
         
         for feature in features:
@@ -189,15 +206,13 @@ class SfFile(object):
             assert feature in AVAILABLE_FEATURES, "Feature {} is not available.".format(feature)
 
             self.run_feature(cfg, feature)
-        
-        self.fitted = True
     
-    def run_feature(self, cfg, feature):
+    def run_feature(self, cfg: dict, feature: str) -> None:
         """Extract a particular structural feature from an HSS file specified in the config file.
         
         Args:
-            cfg: Configuration dictionary.
-            feature: Feature name.
+            cfg (dict): Configuration dictionary.
+            feature (str): Name of the feature to extract.
         """
         
         sys.stdout.write("\nExtracting feature: {}\n".format(feature))
@@ -459,4 +474,56 @@ def structfeat_computation(feature, struct_id, hss, params):
             return _icp.run(struct_id, hss, params)
         if feature == 'rg':
             return _rg.run(struct_id, hss, params)
+
+
+def read_configuration(cfg: object) -> dict:
+    """ Read and process the configuration file.
+    
+    The input can be either a string (path to a json file) or a dictionary.
+    
+    All file paths in the configuration file are converted to absolute paths.
+
+    Args:
+        cfg (object): Either a string (path to a json file) or a dictionary.
+
+    Returns:
+        dict: Processed configuration dictionary.
+    """
+    
+    # Check that cfg is a valid type
+    valid_types = [str, dict]
+    if not any(isinstance(cfg, t) for t in valid_types):
+        raise TypeError("cfg must be either a string or a dictionary.")
+    
+    # If cfg is a string, assert that it is a valid path to a json file
+    if isinstance(cfg, str):
+        if not os.path.exists(cfg):
+            raise FileNotFoundError("The configuration file does not exist.")
+        if not cfg.endswith('.json'):
+            raise ValueError("The configuration file must be a json file.")
+        with open(cfg, 'r') as file:
+            cfg = json.load(file)
+    
+    # Convert all file paths to absolute paths
+    convert_to_abs_path(cfg)
+    
+    return cfg
+
+def convert_to_abs_path(cfg: dict):
+  """ Given a dictionary or arbitrary depth, convert all relative paths to absolute paths.
+  
+  This is a recursive function: for each key-value pair, if the value is a file path, it is converted to an absolute path.
+  Otherwise, if the value is a dictionary, the function is called recursively on the value.
+
+  Args:
+    cfg (dict): Dictionary of arbitrary depth.
+  """
+  for key, value in cfg.items():
+    # If the value is a dictionary, call the function recursively
+    if isinstance(value, dict):
+      convert_to_abs_path(value)
+    # If the value is a file path, convert it to an absolute path
+    elif isinstance(value, str) and os.path.exists(value):
+      cfg[key] = os.path.abspath(value)
+
     
