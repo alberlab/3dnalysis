@@ -104,3 +104,16 @@ When I tried it on the H1 data, now for some reason I get stuck at the first com
 I don't know what the issue is: it seems like it can finish the parallel function successfully, but it doesn't enter the reduce function.
 
 I will have to understand what the issue is.
+
+
+February 26, 2024
+
+I found all the issues with the code: the radial was frozen because I was calling the hss.index.copy_index within a loop,
+and every time it was retrieving the index from the HDF5 file, which was very slow. I fixed it by calling it only once before the loop.
+
+I then fixed the transAB and ICP calculation: now it's both memory efficient and faster. It loops over each bead, but the content of the loop is optimized.
+
+I then fixed all other structural features and added documentation.
+
+Next time I will include a code that reads the configuration file from a JSON file, changes the path of all files to absolute paths, and saves the configuration file (as JSON string) in the HDF5 file.
+Then I will have to decide what to do with all the attributes that I am saving in the object, but not in the HDF5 file, as for example "self.nstruct = hss.nstruct" in line 182.
