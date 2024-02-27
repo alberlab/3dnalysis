@@ -49,10 +49,11 @@ def adapt_haploid_to_index(hap_track: np.ndarray, index: Index) -> np.ndarray:
         np.ndarray(nbeads): adapted track
     """
     multi_track = np.zeros(len(index), dtype=hap_track.dtype)
-    for i in index.copy_index:
+    copy_index = index.copy_index
+    for i in copy_index:
         # copy_index is a Dictionary, where:
         # - keys are haploid indices (0, 1, 2, ..., nbead_hap - 1)
         # - values are the multiploid indices for the corresponding haploid index
         # for examples {0: [0, 1000], 1: [1, 1001], ...}
-        multi_track[index.copy_index[i]] = hap_track[i]
+        multi_track[copy_index[i]] = hap_track[i]
     return multi_track
