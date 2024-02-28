@@ -178,7 +178,7 @@ cython_debug/
 *out_submit
 
 # Data in the test_parallels folder
-*/test_parallels/*
+test_parallels/
 
 # VSCode settings
 .vscode/
