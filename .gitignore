@@ -166,7 +166,6 @@ cython_debug/
 *.npy
 *.pkl
 *.dat
-*.txt
 
 # ipyparallel submission files
 *err_controller
@@ -177,6 +176,9 @@ cython_debug/
 *script1.sh
 *err_submit
 *out_submit
+
+# Data in the test_parallels folder
+*/test_parallels/*
 
 # VSCode settings
 .vscode/
