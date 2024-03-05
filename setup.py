@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="genome3danalysis",
-    version="0.1",
+    version="0.1+fix_parallelization",
     author="Francesco Musella, Ye West",
     author_email="fmusella@g.ucla.edu",
     description="3D Genome Analysis Tools",
