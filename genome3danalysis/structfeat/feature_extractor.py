@@ -339,7 +339,7 @@ class SfFile(object):
         except KeyError:
             "hss_name not found in cfg."
         
-        # open ct file
+        # open hss file
         hss = HssFile(hss_name, 'r')
         
         # check that the output size is correct
