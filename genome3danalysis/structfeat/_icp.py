@@ -21,8 +21,8 @@ def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
         (np.ndarray): The inter-chromosomal contact probability of each bead in the structure.
     """
     
-    # get coordinates of struct_id
-    coord = hss.coordinates[:, struct_id, :]
+    # get coordinates of struct_id (only loading to memory the coordinates of the structure)
+    coord = hss['coordinates'][:, struct_id, :]
     
     # get the radii of the beads
     radii = hss.radii

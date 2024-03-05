@@ -47,8 +47,8 @@ def run(struct_id: int, hss: HssFile, params: dict, what_to_measure: str) -> np.
     if bodies.shape[0] == 0:
         return np.full(coord.shape[0], np.nan)
     
-    # get coordinates of struct_id
-    coord = hss.coordinates[:, struct_id, :]
+    # get coordinates of struct_id (only loading to memory the coordinates of the structure)
+    coord = hss['coordinates'][:, struct_id, :]
     
     # Compute the distance between each bead and each body
     dist_bodies = cdist(coord, bodies)  # shape: (n_beads, n_bodies)

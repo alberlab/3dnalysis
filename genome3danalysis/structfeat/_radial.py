@@ -44,8 +44,8 @@ def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
             for r in radius:
                 assert isinstance(r, (int, float)), 'Radius must be a 3D vector of numbers since shape is an ellipsoid'
     
-    # get coordinates of struct_id
-    coord = hss.coordinates[:, struct_id, :]
+    # get coordinates of struct_id (only loading to memory the coordinates of the structure)
+    coord = hss['coordinates'][:, struct_id, :]
     
     # compute radial distance
     # for sphere and ellipsoid

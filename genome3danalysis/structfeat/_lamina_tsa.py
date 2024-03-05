@@ -65,8 +65,8 @@ def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
         tsa_alpha = DEFAULT_TSA_EXPONENT
     assert isinstance(tsa_alpha, float), 'TSA-seq exponent must be a float'
     
-    # get coordinates of struct_id
-    coord = hss.coordinates[:, struct_id, :]
+    # get coordinates of struct_id (only loading to memory the coordinates of the structure)
+    coord = hss['coordinates'][:, struct_id, :]
     
     # compute lamin distance
     # for sphere and ellipsoid

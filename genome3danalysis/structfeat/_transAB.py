@@ -49,8 +49,8 @@ def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
     except KeyError:
         dist_sts_thresh = DEFAULT_DIST_CUTOFF
     
-    # get coordinates of struct_id
-    coord = hss.coordinates[:, struct_id, :]
+    # get coordinates of struct_id (only loading to memory the coordinates of the structure)
+    coord = hss['coordinates'][:, struct_id, :]
     
     # get the radii of the beads
     radii = hss.radii
