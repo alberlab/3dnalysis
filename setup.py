@@ -24,7 +24,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-              'structfeat-run=genome3danalysis.structfeat.feature_extractor_run:main',
+              'structfeat-run=genome3danalysis.structfeat.run_feature_extractor:main',
         ],
     }
 )
