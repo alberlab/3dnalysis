@@ -127,7 +127,7 @@ class SfFile(object):
     def get_feature(self, feature_name: str, format: str = 'matrix') -> np.ndarray:
         """ Get the feature data from the h5 file.
         The 'format' key specifies what to retrieve, e.g.
-        - 'matrix': the feature matrix, 2D array of shape (nstruct, nbead)
+        - 'matrix': the feature matrix, 2D array of shape (nbead, nstruct)
         - 'mean': the mean array, 1D array of shape (nbead,)
         - ...
         The available formats depend on the feature."""
