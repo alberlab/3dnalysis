@@ -1,11 +1,11 @@
 import numpy as np
 from alabtools.utils import Index
-from alabtools.analysis import HssFile
+import h5py
 from .. import utils
 
 DEFAULT_DIST_CUTOFF = 500  # nm
 
-def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
+def run(struct_id: int, hss_opt: h5py.File, params: dict) -> np.ndarray:
     """ Calculate the trans A/B ratio for each bead in the structure.
     
     Trans A/B ratio is defined as the ratio of the number of inter-chromosomal A beads within a distance threshold
@@ -16,12 +16,15 @@ def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
 
     Args:
         struct_id (int): The index of the structure in the HSS file.
-        hss (alabtools.analysis.HssFile)
+        hss_opt (h5py.File): The optimized HSS file, with coordinates of different structures in separate datasets.
         params (dict): A dictionary containing the parameters for the analysis.
 
     Returns:
         (np.ndarray): The trans A/B ratio for each bead in the structure.
     """
+    
+    # get the index
+    index = Index(hss_opt)
     
     # Read A/B compartment file name
     try:
@@ -35,13 +38,13 @@ def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
         raise KeyError('AB-compartment file not found')
     # Assert that AB track is correct
     assert isinstance(ab, np.ndarray), 'AB-compartment track must be a numpy array'
-    assert len(ab) == np.sum(hss.index.copy == 0),\
+    assert len(ab) == np.sum(index.copy == 0),\
         'AB-compartment track must have the same length as the number of haploid beads in the structure'
     assert len(np.unique(ab)) == 2 or len(np.unique(ab)) == 3,\
         'AB-compartment track must contain only A and B and optionally NA (unspecified format)'
     assert 'A' in np.unique(ab) and 'B' in np.unique(ab), 'AB-compartment track must contain A and B'    
     # Adapt AB track to multi-ploid index
-    ab = utils.adapt_haploid_to_index(ab, hss.index)
+    ab = utils.adapt_haploid_to_index(ab, index)
     
     # Get the surface-to-surface distance threshold
     try:
@@ -49,15 +52,11 @@ def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
     except KeyError:
         dist_sts_thresh = DEFAULT_DIST_CUTOFF
     
-    # get coordinates of struct_id (only loading to memory the coordinates of the structure)
-    coord = hss['coordinates'][:, struct_id, :]
+    # get coordinates of struct_id
+    coord = hss_opt['coordinates'][str(struct_id)][:]
     
     # get the radii of the beads
-    radii = hss.radii
-    
-    # get the index
-    index = hss.index
-    index: Index
+    radii = hss_opt['radii'][:]
     
     # Initialize the transAB_ratio
     transAB_ratio = np.zeros(len(index)).astype(float)

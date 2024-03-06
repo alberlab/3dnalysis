@@ -1,16 +1,16 @@
 import numpy as np
 import alabtools.geo
 from alabtools.utils import Index
-from alabtools.analysis import HssFile
+import h5py
 
 DEFAULT_WINDOW_SIZE = 5  # TODO: should be given in Mb and converted to number of beads using the resolution
     
-def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
+def run(struct_id: int, hss_opt: h5py.File, params: dict) -> np.ndarray:
     """ Compute the radius of gyration for each bead in the structure.
 
     Args:
         struct_id (int): The index of the structure in the HSS file.
-        hss (alabtools.analysis.HssFile)
+        hss_opt (h5py.File): The optimized HSS file, with coordinates of different structures in separate datasets.
         params (dict): A dictionary containing the parameters for the analysis.
 
     Returns:
@@ -28,18 +28,17 @@ def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
     assert window >= 3, 'Window size should be at least 3'
     assert isinstance(window, int), 'Window size should be an integer'
     
-    # get coordinates of struct_id (only loading to memory the coordinates of the structure)
-    coord = hss['coordinates'][:, struct_id, :]
+    # get coordinates of struct_id
+    coord = hss_opt['coordinates'][str(struct_id)][:]
     
-    # get the radii of each bead
-    radii = hss.radii
+    # get the radii of the beads
+    radii = hss_opt['radii'][:]
     
     # get the index
-    index = hss.index
-    index: Index
+    index = Index(hss_opt)
     
     # get the number of beads
-    nbead = hss.nbead
+    nbead = hss_opt['nbead']
     assert nbead == len(index)
     
     # initialize the gyration radius array
