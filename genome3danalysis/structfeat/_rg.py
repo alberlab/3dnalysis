@@ -38,7 +38,7 @@ def run(struct_id: int, hss_opt: h5py.File, params: dict) -> np.ndarray:
     index = Index(hss_opt)
     
     # get the number of beads
-    nbead = hss_opt['nbead']
+    nbead = hss_opt.attrs['nbead']
     assert nbead == len(index)
     
     # initialize the gyration radius array
