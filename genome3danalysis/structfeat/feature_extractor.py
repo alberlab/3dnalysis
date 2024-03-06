@@ -201,11 +201,27 @@ class SfFile(object):
         # Set the index in the h5 file
         self.set_index(hss.index)
         
+        # Create the optimized version of the HSS file,
+        # where the coordinates of each structure are stored as separate datasets in the same group.
+        # The other groups/datasets/attributes (index, radii, nbead, nstruct) are copied as is.
+        hss_opt_name = hss_name.replace('.hss', '.hss.opt')
+        utils.create_optimized_hss(hss_opt_name, hss)  # saves the optimized HSS file
+        # Add the name of the optimized HSS file to the configuration
+        cfg['hss_opt_name'] = hss_opt_name
+        # Close the original HSS file
+        hss.close()
+        sys.stdout.write("Optimized HSS file created\n")
+        
         for feature in features:
             assert isinstance(feature, str), "Each feature must be a string."
             assert feature in AVAILABLE_FEATURES, "Feature {} is not available.".format(feature)
 
             self.run_feature(cfg, feature)
+        
+        # Remove the optimized HSS file
+        os.system('rm -f {}'.format(hss_opt_name))
+        
+        sys.stdout.write("All features extracted\n")
     
     def run_feature(self, cfg: dict, feature: str) -> None:
         """Extract a particular structural feature from an HSS file specified in the config file.
@@ -218,6 +234,7 @@ class SfFile(object):
         sys.stdout.write("\nExtracting feature: {}\n".format(feature))
 
         # open HSS file
+        # we just need the number of structures, so we don't need to open the optimized HSS file
         hss_name = cfg['hss_name']
         hss = HssFile(hss_name, 'r')
         
@@ -306,14 +323,14 @@ class SfFile(object):
     @staticmethod
     def parallel_feature(struct_id, feature, cfg, temp_dir):
         
-        # get data from the configuration
+        # get the optimized HSS file name from the configuration
         try:
-            hss_name = cfg['hss_name']
+            hss_opt_name = cfg['hss_opt_name']
         except KeyError:
-            raise KeyError("hss_name not found in cfg.")
+            raise KeyError("hss_opt_name not found in cfg.")
         
-        # open hss file
-        hss = HssFile(hss_name, 'r')
+        # open the optimized HSS file
+        hss_opt = h5py.File(hss_opt_name, 'r')
         
         # get the feature parameters from the configuration
         try:
@@ -322,7 +339,7 @@ class SfFile(object):
             raise KeyError("No parameters found for feature {}.".format(feature))
 
         # compute the feature array for the current structure
-        feat_arr = structfeat_computation(feature, struct_id, hss, params)
+        feat_arr = structfeat_computation(feature, struct_id, hss_opt, params)
         
         # save the feature array in the temporary directory
         out_name = os.path.join(temp_dir, feature + '_' + str(struct_id) + '.npy')
@@ -340,6 +357,7 @@ class SfFile(object):
             "hss_name not found in cfg."
         
         # open hss file
+        # again, we just need the number of beads and structures, so we don't need to open the optimized HSS file
         hss = HssFile(hss_name, 'r')
         
         # check that the output size is correct
@@ -453,27 +471,27 @@ class SfFile(object):
             raise ValueError("Method {} not recognized.".format(method))
 
 
-def structfeat_computation(feature, struct_id, hss, params):
+def structfeat_computation(feature, struct_id, hss_opt, params):
         if feature == 'radial':
-            return _radial.run(struct_id, hss, params)
+            return _radial.run(struct_id, hss_opt, params)
         if feature == 'lamina':
-            return _lamina.run(struct_id, hss, params)
+            return _lamina.run(struct_id, hss_opt, params)
         if feature == 'lamina_tsa':
-            return _lamina_tsa.run(struct_id, hss, params)
+            return _lamina_tsa.run(struct_id, hss_opt, params)
         if feature == 'speckle':
-            return _body.run(struct_id, hss, params, what_to_measure='dist')
+            return _body.run(struct_id, hss_opt, params, what_to_measure='dist')
         if feature == 'speckle_tsa':
-            return _body.run(struct_id, hss, params, what_to_measure='tsa')
+            return _body.run(struct_id, hss_opt, params, what_to_measure='tsa')
         if feature == 'nucleoli':
-            return _body.run(struct_id, hss, params, what_to_measure='dist')
+            return _body.run(struct_id, hss_opt, params, what_to_measure='dist')
         if feature == 'nucleoli_tsa':
-            return _body.run(struct_id, hss, params, what_to_measure='tsa')
+            return _body.run(struct_id, hss_opt, params, what_to_measure='tsa')
         if feature == 'transAB':
-            return _transAB.run(struct_id, hss, params)
+            return _transAB.run(struct_id, hss_opt, params)
         if feature == 'icp':
-            return _icp.run(struct_id, hss, params)
+            return _icp.run(struct_id, hss_opt, params)
         if feature == 'rg':
-            return _rg.run(struct_id, hss, params)
+            return _rg.run(struct_id, hss_opt, params)
 
 
 def read_configuration(cfg: object) -> dict:

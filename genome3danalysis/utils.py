@@ -1,6 +1,9 @@
+import os
 import numpy as np
 import pandas as pd
+import h5py
 from alabtools.utils import Index
+from alabtools.analysis import HssFile
 
 
 def read_bed(filename: str, val_type: type = float) -> tuple:
@@ -57,3 +60,53 @@ def adapt_haploid_to_index(hap_track: np.ndarray, index: Index) -> np.ndarray:
         # for examples {0: [0, 1000], 1: [1, 1001], ...}
         multi_track[copy_index[i]] = hap_track[i]
     return multi_track
+
+
+def create_optimized_hss(out_name: str, hss: HssFile) -> None:
+    """ Creates an optimized HSS file, where the data of each structure is stored as a separate dataset.
+    
+    The file contains the following datasets/groups:
+        - index (group): a group containing the index of the HSS file
+        - coordinates (group): a group containing the coordinates of the structures
+            *) each structure ('0', '1', '2', ...) is stored as a dataset
+        - radii (dataset): the radii of the structures
+    and the following attributes:
+        - nbead (int): number of beads
+        - nstruct (int): number of structures
+
+    Args:
+        hss (HssFile): HSS file to optimize
+    """
+    
+    # Make sure that the out_name has a valid path
+    if not os.path.exists(os.path.dirname(out_name)):
+        raise ValueError(f"Path {os.path.dirname(out_name)} does not exist.")
+    # Make sure that the file does not already exist
+    if os.path.exists(out_name):
+        raise ValueError(f"File {out_name} already exists.")
+    
+    # Create a the HDF5 file for the optimized HSS
+    h5 = h5py.File(out_name, 'w')
+    
+    # Add the attributes
+    h5.attrs['nbead'] = hss.nbead
+    h5.attrs['nstruct'] = hss.nstruct
+    
+    # Save the index
+    hss.index.save(h5)
+    
+    # Create a dataset for the radii
+    h5.create_dataset('radii', data=hss.radii, dtype=hss.radii.dtype)
+    
+    # Load the coordinates to memory from the HSS file
+    coord = hss.coordinates
+    
+    # Create a group for the coordinates
+    h5.create_group('coordinates')
+    
+    # Loop over the structures and save the coordinates
+    for structID in range(hss.nstruct):
+        h5['coordinates'].create_dataset(str(structID), data=coord[:, structID, :], dtype=coord.dtype)
+    
+    # Close the file
+    h5.close()
