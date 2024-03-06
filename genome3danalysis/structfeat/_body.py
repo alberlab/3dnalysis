@@ -1,11 +1,11 @@
 import numpy as np
 from scipy.spatial.distance import cdist
 import pickle
-from alabtools.analysis import HssFile
+import h5py
 
 DEFAULT_TSA_EXPONENT = 0.004  # TODO: check this parameter!
 
-def run(struct_id: int, hss: HssFile, params: dict, what_to_measure: str) -> np.ndarray:
+def run(struct_id: int, hss_opt: h5py.File, params: dict, what_to_measure: str) -> np.ndarray:
     """ Calculate either the distance or the TSA-distance between each bead and the bodies of interest, e.g. speckles.
     
     The distance is calculated as the minimum distance between each bead and each body.
@@ -15,7 +15,7 @@ def run(struct_id: int, hss: HssFile, params: dict, what_to_measure: str) -> np.
 
     Args:
         struct_id (int): The index of the structure in the HSS file.
-        hss (alabtools.analysis.HssFile)
+        hss_opt (h5py.File): The optimized HSS file, with coordinates of different structures in separate datasets.
         params (dict): A dictionary containing the parameters for the analysis.
         what_to_measure (str): Either 'dist' or 'tsa', to calculate the distance or the TSA-distance, respectively.
 
@@ -48,7 +48,7 @@ def run(struct_id: int, hss: HssFile, params: dict, what_to_measure: str) -> np.
         return np.full(coord.shape[0], np.nan)
     
     # get coordinates of struct_id
-    coord = hss.coordinates[:, struct_id, :]
+    coord = hss_opt['coordinates'][str(struct_id)][:]
     
     # Compute the distance between each bead and each body
     dist_bodies = cdist(coord, bodies)  # shape: (n_beads, n_bodies)

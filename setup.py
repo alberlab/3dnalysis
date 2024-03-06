@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="genome3danalysis",
-    version="0.1",
+    version="0.2",
     author="Francesco Musella, Ye West",
     author_email="fmusella@g.ucla.edu",
     description="3D Genome Analysis Tools",
@@ -24,7 +24,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-              'structfeat-run=genome3danalysis.structfeat.feature_extractor_run:main',
+              'structfeat-run=genome3danalysis.structfeat.run_feature_extractor:main',
         ],
     }
 )

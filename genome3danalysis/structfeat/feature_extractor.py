@@ -127,7 +127,7 @@ class SfFile(object):
     def get_feature(self, feature_name: str, format: str = 'matrix') -> np.ndarray:
         """ Get the feature data from the h5 file.
         The 'format' key specifies what to retrieve, e.g.
-        - 'matrix': the feature matrix, 2D array of shape (nstruct, nbead)
+        - 'matrix': the feature matrix, 2D array of shape (nbead, nstruct)
         - 'mean': the mean array, 1D array of shape (nbead,)
         - ...
         The available formats depend on the feature."""
@@ -201,11 +201,27 @@ class SfFile(object):
         # Set the index in the h5 file
         self.set_index(hss.index)
         
+        # Create the optimized version of the HSS file,
+        # where the coordinates of each structure are stored as separate datasets in the same group.
+        # The other groups/datasets/attributes (index, radii, nbead, nstruct) are copied as is.
+        hss_opt_name = hss_name.replace('.hss', '.hss.opt')
+        utils.create_optimized_hss(hss_opt_name, hss)  # saves the optimized HSS file
+        # Add the name of the optimized HSS file to the configuration
+        cfg['hss_opt_name'] = hss_opt_name
+        # Close the original HSS file
+        hss.close()
+        sys.stdout.write("Optimized HSS file created\n")
+        
         for feature in features:
             assert isinstance(feature, str), "Each feature must be a string."
             assert feature in AVAILABLE_FEATURES, "Feature {} is not available.".format(feature)
 
             self.run_feature(cfg, feature)
+        
+        # Remove the optimized HSS file
+        os.system('rm -f {}'.format(hss_opt_name))
+        
+        sys.stdout.write("All features extracted\n")
     
     def run_feature(self, cfg: dict, feature: str) -> None:
         """Extract a particular structural feature from an HSS file specified in the config file.
@@ -218,6 +234,7 @@ class SfFile(object):
         sys.stdout.write("\nExtracting feature: {}\n".format(feature))
 
         # open HSS file
+        # we just need the number of structures, so we don't need to open the optimized HSS file
         hss_name = cfg['hss_name']
         hss = HssFile(hss_name, 'r')
         
@@ -289,31 +306,33 @@ class SfFile(object):
         
         sys.stdout.write("Bulk quantities added to the h5 file\n")
         
-        if 'contact_threshold' not in cfg['features'][feature]:
-            sys.stdout.write("Finished\n\n")
-            return None
+        # If a threshold is specified, compute the association frequency array
+        if 'contact_threshold' in cfg['features'][feature]:
+            # Compute the single-structure contact frequency matrix
+            cnt_thresh = cfg['features'][feature]['contact_threshold']
+            # Compute the HAPLOID average contact frequency array
+            freq_arr, _ = self.compute_feature_mean_std(feature, threshold=cnt_thresh)
+            # Add the association frequency array to feature group of the h5 file
+            h5_group.create_dataset('association_freq', data=freq_arr)
+            sys.stdout.write("Association frequency added to the h5 file\n")
+            del freq_arr
         
-        # Compute the single-structure contact frequency matrix
-        cnt_thresh = cfg['features'][feature]['contact_threshold']
-        # Compute the HAPLOID average contact frequency array
-        freq_arr, _ = self.compute_feature_mean_std(feature, threshold=cnt_thresh)
-        # Add the association frequency array to feature group of the h5 file
-        h5_group.create_dataset('association_freq', data=freq_arr)
+        del feat_mat, feat_mean_arr, feat_std_arr, feat_mean_arr_lnorm_gwide, feat_mean_arr_lnorm_cwide, feat_std_arr_lnorm_gwide, feat_std_arr_lnorm_cwide
+        hss.close()
         
-        sys.stdout.write("Association frequency added to the h5 file\n")
         sys.stdout.write("Finished\n\n")
  
     @staticmethod
     def parallel_feature(struct_id, feature, cfg, temp_dir):
         
-        # get data from the configuration
+        # get the optimized HSS file name from the configuration
         try:
-            hss_name = cfg['hss_name']
+            hss_opt_name = cfg['hss_opt_name']
         except KeyError:
-            raise KeyError("hss_name not found in cfg.")
+            raise KeyError("hss_opt_name not found in cfg.")
         
-        # open hss file
-        hss = HssFile(hss_name, 'r')
+        # open the optimized HSS file
+        hss_opt = h5py.File(hss_opt_name, 'r')
         
         # get the feature parameters from the configuration
         try:
@@ -322,11 +341,14 @@ class SfFile(object):
             raise KeyError("No parameters found for feature {}.".format(feature))
 
         # compute the feature array for the current structure
-        feat_arr = structfeat_computation(feature, struct_id, hss, params)
+        feat_arr = structfeat_computation(feature, struct_id, hss_opt, params)
         
         # save the feature array in the temporary directory
         out_name = os.path.join(temp_dir, feature + '_' + str(struct_id) + '.npy')
         np.save(out_name, feat_arr)
+        
+        del feat_arr
+        hss_opt.close()
         
         return out_name
     
@@ -339,7 +361,8 @@ class SfFile(object):
         except KeyError:
             "hss_name not found in cfg."
         
-        # open ct file
+        # open hss file
+        # again, we just need the number of beads and structures, so we don't need to open the optimized HSS file
         hss = HssFile(hss_name, 'r')
         
         # check that the output size is correct
@@ -357,6 +380,8 @@ class SfFile(object):
                 feat_mat[:, structID] = np.load(out_name)
             except IOError:
                 raise IOError("File {} not found.".format(out_name))
+        
+        hss.close()
         
         return feat_mat
     
@@ -453,27 +478,27 @@ class SfFile(object):
             raise ValueError("Method {} not recognized.".format(method))
 
 
-def structfeat_computation(feature, struct_id, hss, params):
+def structfeat_computation(feature, struct_id, hss_opt, params):
         if feature == 'radial':
-            return _radial.run(struct_id, hss, params)
+            return _radial.run(struct_id, hss_opt, params)
         if feature == 'lamina':
-            return _lamina.run(struct_id, hss, params)
+            return _lamina.run(struct_id, hss_opt, params)
         if feature == 'lamina_tsa':
-            return _lamina_tsa.run(struct_id, hss, params)
+            return _lamina_tsa.run(struct_id, hss_opt, params)
         if feature == 'speckle':
-            return _body.run(struct_id, hss, params, what_to_measure='dist')
+            return _body.run(struct_id, hss_opt, params, what_to_measure='dist')
         if feature == 'speckle_tsa':
-            return _body.run(struct_id, hss, params, what_to_measure='tsa')
+            return _body.run(struct_id, hss_opt, params, what_to_measure='tsa')
         if feature == 'nucleoli':
-            return _body.run(struct_id, hss, params, what_to_measure='dist')
+            return _body.run(struct_id, hss_opt, params, what_to_measure='dist')
         if feature == 'nucleoli_tsa':
-            return _body.run(struct_id, hss, params, what_to_measure='tsa')
+            return _body.run(struct_id, hss_opt, params, what_to_measure='tsa')
         if feature == 'transAB':
-            return _transAB.run(struct_id, hss, params)
+            return _transAB.run(struct_id, hss_opt, params)
         if feature == 'icp':
-            return _icp.run(struct_id, hss, params)
+            return _icp.run(struct_id, hss_opt, params)
         if feature == 'rg':
-            return _rg.run(struct_id, hss, params)
+            return _rg.run(struct_id, hss_opt, params)
 
 
 def read_configuration(cfg: object) -> dict:

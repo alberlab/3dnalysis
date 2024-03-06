@@ -1,10 +1,10 @@
 import numpy as np
 from alabtools.utils import Index
-from alabtools.analysis import HssFile
+import h5py
 
 DEFAULT_DIST_CUTOFF = 500  # nm
 
-def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
+def run(struct_id: int, hss_opt: h5py.File, params: dict) -> np.ndarray:
     """ Calculate the inter-chromosomal contact probability (ICP) of a structure.
     
     ICP is defined as the ratio of the number of inter-chromosomal contacts to the total number of contacts:
@@ -14,7 +14,7 @@ def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
 
     Args:
         struct_id (int): The index of the structure in the HSS file.
-        hss (alabtools.analysis.HssFile)
+        hss_opt (h5py.File): The optimized HSS file, with coordinates of different structures in separate datasets.
         params (dict): A dictionary containing the parameters for the analysis.
 
     Returns:
@@ -22,14 +22,13 @@ def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
     """
     
     # get coordinates of struct_id
-    coord = hss.coordinates[:, struct_id, :]
+    coord = hss_opt['coordinates'][str(struct_id)][:]
     
     # get the radii of the beads
-    radii = hss.radii
+    radii = hss_opt['radii'][:]
     
     # get the index
-    index = hss.index
-    index: Index
+    index = Index(hss_opt)
     
     # get the surface-to-surface distance threshold
     try:

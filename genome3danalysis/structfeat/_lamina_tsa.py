@@ -1,12 +1,12 @@
 import numpy as np
 from scipy.spatial.distance import cdist
-from alabtools.analysis import HssFile
+import h5py
 
 AVAILABLE_SHAPES = ['sphere', 'ellipsoid', 'experimental']
 DEFAULT_EXTERIOR_THRESHOLD = 0.85
 DEFAULT_TSA_EXPONENT = 0.004  # TODO: check this value
     
-def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
+def run(struct_id: int, hss_opt: h5py.File, params: dict) -> np.ndarray:
     """ Compute the lamin TSA-seq signal for a given structure.
     
     The lamina is estimated from the most external beads of the structure.
@@ -15,7 +15,7 @@ def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
 
     Args:
         struct_id (int): The index of the structure in the HSS file.
-        hss (alabtools.analysis.HssFile)
+        hss_opt (h5py.File): The optimized HSS file, with coordinates of different structures in separate datasets.
         params (dict): A dictionary containing the parameters for the analysis.
 
     Returns:
@@ -66,7 +66,7 @@ def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
     assert isinstance(tsa_alpha, float), 'TSA-seq exponent must be a float'
     
     # get coordinates of struct_id
-    coord = hss.coordinates[:, struct_id, :]
+    coord = hss_opt['coordinates'][str(struct_id)][:]
     
     # compute lamin distance
     # for sphere and ellipsoid

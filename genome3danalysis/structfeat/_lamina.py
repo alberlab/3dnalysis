@@ -1,9 +1,9 @@
 import numpy as np
-from alabtools.analysis import HssFile
+import h5py
 
 AVAILABLE_SHAPES = ['sphere', 'ellipsoid', 'experimental']
     
-def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
+def run(struct_id: int, hss_opt: h5py.File, params: dict) -> np.ndarray:
     """ Compute the lamin distance for a given structure.
     
     The lamin distance is the distance from each bead to the closest point in the lamina.
@@ -12,7 +12,7 @@ def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
 
     Args:
         struct_id (int): The index of the structure in the HSS file.
-        hss (alabtools.analysis.HssFile)
+        hss_opt (h5py.File): The optimized HSS file, with coordinates of different structures in separate datasets.
         params (dict): A dictionary containing the parameters for the analysis.
 
     Returns:
@@ -47,7 +47,7 @@ def run(struct_id: int, hss: HssFile, params: dict) -> np.ndarray:
                 assert isinstance(r, (int, float)), 'Radius must be a 3D vector of numbers since shape is an ellipsoid'
     
     # get coordinates of struct_id
-    coord = hss.coordinates[:, struct_id, :]
+    coord = hss_opt['coordinates'][str(struct_id)][:]
     
     # compute lamin distance
     # for sphere and ellipsoid
