@@ -306,18 +306,20 @@ class SfFile(object):
         
         sys.stdout.write("Bulk quantities added to the h5 file\n")
         
-        if 'contact_threshold' not in cfg['features'][feature]:
-            sys.stdout.write("Finished\n\n")
-            return None
+        # If a threshold is specified, compute the association frequency array
+        if 'contact_threshold' in cfg['features'][feature]:
+            # Compute the single-structure contact frequency matrix
+            cnt_thresh = cfg['features'][feature]['contact_threshold']
+            # Compute the HAPLOID average contact frequency array
+            freq_arr, _ = self.compute_feature_mean_std(feature, threshold=cnt_thresh)
+            # Add the association frequency array to feature group of the h5 file
+            h5_group.create_dataset('association_freq', data=freq_arr)
+            sys.stdout.write("Association frequency added to the h5 file\n")
+            del freq_arr
         
-        # Compute the single-structure contact frequency matrix
-        cnt_thresh = cfg['features'][feature]['contact_threshold']
-        # Compute the HAPLOID average contact frequency array
-        freq_arr, _ = self.compute_feature_mean_std(feature, threshold=cnt_thresh)
-        # Add the association frequency array to feature group of the h5 file
-        h5_group.create_dataset('association_freq', data=freq_arr)
+        del feat_mat, feat_mean_arr, feat_std_arr, feat_mean_arr_lnorm_gwide, feat_mean_arr_lnorm_cwide, feat_std_arr_lnorm_gwide, feat_std_arr_lnorm_cwide
+        hss.close()
         
-        sys.stdout.write("Association frequency added to the h5 file\n")
         sys.stdout.write("Finished\n\n")
  
     @staticmethod
@@ -344,6 +346,9 @@ class SfFile(object):
         # save the feature array in the temporary directory
         out_name = os.path.join(temp_dir, feature + '_' + str(struct_id) + '.npy')
         np.save(out_name, feat_arr)
+        
+        del feat_arr
+        hss_opt.close()
         
         return out_name
     
@@ -375,6 +380,8 @@ class SfFile(object):
                 feat_mat[:, structID] = np.load(out_name)
             except IOError:
                 raise IOError("File {} not found.".format(out_name))
+        
+        hss.close()
         
         return feat_mat
     
