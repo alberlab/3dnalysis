@@ -1,6 +1,7 @@
 import numpy as np
 import h5py
 import json
+import pickle
 from alabtools.analysis import HssFile
 from alabtools.utils import Index
 import tempfile
@@ -343,9 +344,10 @@ class SfFile(object):
         # compute the feature array for the current structure
         feat_arr = structfeat_computation(feature, struct_id, hss_opt, params)
         
-        # save the feature array in the temporary directory
-        out_name = os.path.join(temp_dir, feature + '_' + str(struct_id) + '.npy')
-        np.save(out_name, feat_arr)
+        # save the feature array in the temporary directory as a pickle file
+        out_name = os.path.join(temp_dir, feature + '_' + str(struct_id))
+        with open(out_name, 'wb') as file:
+            pickle.dump(feat_arr, file)
         
         del feat_arr
         hss_opt.close()
@@ -376,8 +378,12 @@ class SfFile(object):
         for structID in np.arange(hss.nstruct):
             # try to open the output file associated to structID
             try:
-                out_name = os.path.join(temp_dir, feature + '_' + str(structID) + '.npy')
-                feat_mat[:, structID] = np.load(out_name)
+                # Load the feature array from the pickle file
+                out_name = os.path.join(temp_dir, feature + '_' + str(structID))
+                with open(out_name, 'rb') as file:
+                    feat_arr = pickle.load(file)
+                # Add the feature array to the matrix
+                feat_mat[:, structID] = feat_arr
             except IOError:
                 raise IOError("File {} not found.".format(out_name))
         
